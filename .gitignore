@@ -1,0 +1,9 @@
+# Local AI/config artifacts
+.claude
+
+# Python virtualenv
+.venv/
+
+# Temporary files
+tmp/
+

@@ -1,0 +1,517 @@
+---
+source_url: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/vcf-fleet-basic-management-design/design-decisions-for-vcf-fleet-in-a-single-site-with-minimal-footprint/virtual-infrastructure-design-elements-for-vcf-fleet-in-a-single-site-with-minimal-footprint.html
+product: vmware-cloud-foundation
+version: 9.0
+section: Design
+breadcrumb: Design > Virtual Infrastructure Design Elements for VCF Fleet in a Single Site with Minimal Footprint
+---
+
+# Virtual Infrastructure Design Elements for VCF Fleet in a Single Site with Minimal Footprint
+
+This section provides the virtual infrastructure requirements and recommendations for the VCF Fleet in a Single Site with Minimal Footprint blueprint
+
+## Management Domain (Initial Cluster)
+
+Management Domain Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-WLD-REQD-CFG-001 | Deploy a management domain to host all management components for the VCF instance. | - Guarantees sufficient resources for management components. - Enables the use of specific hardware to meet only the needs of the management components. - Enables the use of dedicated physical compute, network and storage separately from those used for additional workloads. - Enables separate life cycle management of management and workload components. | - You must carefully size the management domain to accommodate planned deployments of additional workload domains and management components. - Hardware might not be fully utilized until full-scale deployment has been reached. |
+
+Management Domain Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-WLD-RCMD-CFG-001 | If running business workloads in the management domain, configure the following vSphere resource pools to control resource usage by management and business workloads.   - cluster-name-rp-sddc-mgmt - cluster-name-rp-sddc-edge - cluster-name-rp-user-edge - cluster-name-rp-user-vm | Ensures sufficient resources for the management components. | You must manually create the vSphere resource pools and manage their settings over time. |
+
+ESX Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-ESX-REQD-CFG-001 | Install no less than the minimum number of ESX hosts required for the vSphere cluster model being deployed. | - Ensures availability requirements are met. - If one of the ESX hosts is not available because of a failure or maintenance event, the CPU over-commitment ratio becomes 2:1. | None. |
+| VCF-ESX-REQD-CFG-002 | Ensure each ESX host matches the required CPU, memory and storage specification. | Ensures workloads will run without contention even during failure and maintenance conditions. | Assemble the server specification and number according to the sizing in [VMware Cloud Foundation Planning and Preparation Workbook](https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/VMware%20Cloud%20Foundation%205.2%20Planning%20and%20Preparation%20Workbook.xlsx) which is based on projected deployment size. |
+| VCF-ESX-REQD-SEC-001 | Regenerate the certificate of each ESX host after assigning the ESX host an FQDN. | Establishes a secure connection with the VCF Installer during the initial deployment and prevents man-in-the-middle (MiTM) attacks. | You must manually regenerate the certificates of the ESX hosts before the deployment. |
+
+ESX Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-ESX-RCMD-CFG-001 | When using vSAN as primary storage in the management domain, use vSAN ReadyNodes for each ESX host. | Your management domain is fully compatible with vSAN at deployment.  For information about the models of physical servers that are vSAN-ready, see [vSAN Compatibility Guide for vSAN ReadyNodes](https://www.vmware.com/resources/compatibility/pdf/vi_vsan_rn_guide.pdf). | - Hardware choices might be limited. - If you plan to use a server configuration that is not a vSAN ReadyNode, your CPU, disks, and I/O modules must be listed on the VMware Compatibility Guide under CPU Series and vSAN Compatibility List aligned to the ESX version. |
+| VCF-ESX-RCMD-CFG-002 | Allocate ESX hosts with uniform configuration across the default management vSphere cluster. | A balanced vSphere cluster has these advantages:   - Predictable performance even during hardware failures. - Minimal impact of resynchronization or rebuild operations on performance. | You must apply vendor sourcing, budgeting, and procurement considerations for uniform server nodes on a per cluster basis. |
+| VCF-ESX-RCMD-CFG-003 | When sizing CPU, do not consider multi-threading technology and associated performance gains. | Although multi-threading technologies increase CPU performance, the performance gain depends on running workloads and differs from one case to another. | Because you must provide more physical CPU cores, costs increase and hardware choices become limited. |
+| VCF-ESX-RCMD-CFG-004 | Install and configure all ESX hosts in the default management vSphere cluster to boot using a 128-GB device or larger. | Provides ESX hosts that have large memory, that is, greater than 512 GB, with enough space for the scratch partition when using vSAN. | None. |
+| VCF-ESX-RCMD-CFG-005 | Use the default configuration for the scratch partition on all ESX hosts in the default management vSphere cluster. | - If a failure in the vSAN cluster occurs, the ESX hosts remain responsive and log information is still accessible. - It is not possible to use a vSAN datastore for the scratch partition. | None. |
+| VCF-ESX-RCMD-CFG-006 | For workloads running in the default management vSphere cluster, save the virtual machine swap file at the default location. | Simplifies the configuration process. | Increases the amount of replication traffic for management workloads that are recovered as part of the disaster recovery process. |
+| VCF-ESX-RCMD-NET-001 | Place the ESX hosts in each management domain vSphere cluster on the ESX management network that is separate from the VM management network. | - Enables the separation of the physical VLAN between ESX hosts and the other management components for security reasons. - The VM management network is not required for a multi-rack compute-only cluster in a workload domain. | Increases the number of VLANs required. |
+| VCF-ESX-RCMD-NET-002 | Place the ESX hosts in each workload domain on a separate ESX host management VLAN-backed network. | Enables the separation of the physical VLAN between the ESX hosts in different workload domains for security reasons. | Increases the number of VLANs required. For each workload domain, you must allocate a separate management subnet. |
+| VCF-ESX-RCMD-NET-003 | Use dedicated VLANs for each traffic type. | Enables the separation of the physical VLAN for vSAN, vMotion, NFS & backup traffic. | Increases the number of VLANs required. For each traffic type you must allocate a separate VLAN and subnet. |
+| VCF-ESX-RCMD-SEC-001 | Set the advanced setting UserVars.SuppressShellWarning to 0 across all ESX hosts in the management domain. | - Ensures compliance with the vSphere Security Configuration Guide and with security best practices - Enables the warning message that appears in the vSphere client every time SSH access is activated on an ESX host. | You must turn off SSH enablement warning messages manually when performing troubleshooting or support activities. |
+
+Common vSphere Cluster Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-CLS-REQD-CFG-001 | Create a vSphere cluster in each workload domain for the initial set of ESX hosts. | - Simplifies configuration by isolating management from customer workloads. - Ensures that customer workloads have no impact on the management stack. | Management of multiple vSphere clusters and vCenter instances increases operational overhead. |
+| VCF-CLS-REQD-CFG-002 | Allocate a minimum number of ESX hosts according to the vSphere cluster type being deployed. | Ensures correct level of redundancy to protect against host failure in the vSphere cluster. | To support redundancy, you must allocate additional ESX host resources. |
+| VCF-CLS-REQD-CFG-003 | Use vSphere Lifecycle Manager images as the life cycle management method for all vSphere clusters.  Imported workload domains may be using vSphere Lifecycle Manager baselines. It is recommended to transition them to use vSphere Lifecycle Manager images. | vSphere Lifecycle Manager images simplify the management of firmware and vendor add-ons manually. | - A vSphere Lifecycle Manager cluster image is required during workload domain or vSphere cluster deployment. |
+| VCF-CLS-REQD-CFG-004 | Use vSphere HA to protect all virtual machines against failures. | vSphere HA supports a robust level of protection for both ESX host and virtual machine availability. | You must provide sufficient resources on the remaining ESX hosts so that virtual machines can be restarted on those hosts in the event of an ESX host outage. |
+
+Common vSphere Cluster Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-CLS-RCMD-CFG-001 | Configure admission control for one (1) ESX host failure and percentage-based failover capacity. | - Using the percentage-based reservation works well in situations where virtual machines have varying and sometimes significant CPU or memory reservations. - vSphere automatically calculates the reserved percentage according to the number of ESX host failures to tolerate and the number of ESX hosts in the vSphere cluster. | In a cluster of four (4) ESX hosts, the resources of only three (3) ESX hosts are available for use. |
+| VCF-CLS-RCMD-CFG-002 | Enable VM Monitoring for each vSphere cluster. | VM Monitoring provides in-guest protection for most VM workloads. The application or service running on the virtual machine must be capable of restarting successfully after a reboot or the virtual machine restart is not sufficient. | None. |
+| VCF-CLS-RCMD-CFG-003 | Set the advanced vSphere cluster setting das.iostatsinterval to 60 to deactivate monitoring the storage and network I/O activities of the management appliances. | Enables triggering a restart of a management appliance when an OS failure occurs and heartbeats are not received from VMware Tools instead of waiting additionally for the I/O check to complete. | If you want to specifically enable I/O monitoring, you must configure the das.iostatsinterval advanced setting. |
+| VCF-CLS-RCMD-CFG-004 | Enable vSphere DRS on all vSphere clusters, using the default fully automated mode with medium threshold. | Provides the best trade-off between load balancing and unnecessary migrations with vMotion. | If a vCenter outage occurs, the mapping from virtual machines to ESX hosts might be difficult to determine. |
+| VCF-CLS-RCMD-CFG-005 | Enable Enhanced vMotion Compatibility (EVC) on all vSphere clusters in the management domain. | Supports vSphere cluster upgrades without virtual machine downtime. | - You must enable EVC only if the vSphere clusters contain ESX hosts with CPUs from the same vendor. - You must enable EVC on the default management domain vSphere cluster during bringup using the API and a JSON spec. |
+| VCF-CLS-RCMD-CFG-006 | Set the vSphere cluster EVC mode to the highest available baseline that is supported for the lowest CPU architecture on the ESX hosts in the vSphere cluster. | Supports vSphere cluster upgrades without virtual machine downtime. | None. |
+| VCF-CLS-RCMD-CFG-007 | If running business workloads in the management domain, configure the following vSphere resource pools to control resource usage by management and business workloads.   - cluster-name-rp-sddc-mgmt - cluster-name-rp-sddc-edge - cluster-name-rp-user-edge - cluster-name-rp-user-vm | Ensures sufficient resources for the management components. | You must manually create the vSphere resource pools and manage their settings over time. |
+| VCF-CLS-RCMD-CFG-008 | Use vSphere Cluster Services (vCLS) Retreat Mode. | System managed vCLS mode is deprecated. | You must manually change the vCLS mode. |
+
+Common Distributed Switch Design Requirements
+
+
+
+| Design Requirements ID | Design Requirements | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-COM-REQD-CFG-001 | Do not share a vSphere Distributed Switch across different vSphere clusters.  (This applies to a greenfield deployment of a cluster using VCF automated workflows) | - Enables independent lifecycle management of vSphere Distributed Switch per vSphere cluster. - Reduces the size of the fault domain. | For multiple vSphere clusters, you manage more vSphere Distributed Switches. |
+
+Common Distributed Switch Design Recommendations
+
+
+
+| Design Recommendations ID | Design Recommendations | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-COM-RCMD-CFG-001 | Configure the MTU size of the vSphere Distributed Switch to 9000 bytes for jumbo frames. | - Supports the MTU size required by system traffic types. - Improves traffic throughput. | When adjusting the MTU packet size, you must also configure the entire network path (VMkernel ports, virtual switches, physical switches, and routers) to support the same MTU packet size. |
+| VCF-VDS-COM-RCMD-CFG-002 | For NSX enabled vSphere Distributed Switch with Overlay or VLAN transport zone configure Enhanced Datapath Standard. | Provides the best performance for bandwidth and packets per second for the edge nodes running on the cluster. | The physical NIC must support the Enhanced Datapath - Interrupt Mode feature. |
+| VCF-VDS-COM-RCMD-DPG-001 | Use ephemeral port binding for the VM management distributed port group (default setting). | - Using ephemeral port binding provides the option to recover the vCenter instance that is managing the vSphere Distributed Switch. - The VM management network is not required for a multi-rack compute-only cluster in a VI workload domain | Port-level permissions and controls are lost across power cycles, and no historical context is saved. |
+| VCF-VDS-COM-RCMD-DPG-002 | Use static port binding for all non-management distributed port groups (default setting). | Static binding ensures a virtual machine connects to the same port on the vSphere Distributed Switch. This allows for historical data and port-level monitoring. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-COM-RCMD-DPG-003 | Use the **Route based on physical NIC load** teaming algorithm for the VM management distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-COM-RCMD-DPG-004 | Use the **Route based on physical NIC load** teaming algorithm for the ESX management distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-COM-RCMD-DPG-005 | Use the **Route based on physical NIC load** teaming algorithm for the vMotion distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+
+Single Distributed Switch Model Design Requirements
+
+
+
+| Design Requirements ID | Design Requirements | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-SDS-REQD-CFG-001 | Use a single vSphere Distributed Switch per vSphere cluster. | Reduces the complexity of the network design. | Reduces the number of vSphere Distributed Switches that must be managed per vSphere cluster. |
+| VCF-VDS-SDS-REQD-CFG-002 | Create the following distributed port groups on the vSphere Distributed Switch:   - VM management (mgmt domain only) - ESX management - vMotion - Storage | Provides the required network services for the vSphere cluster. | VM management distributed port group needs to be manually created on additional vSphere clusters in the management domain and any workload domain vSphere clusters. |
+| VCF-VDS-SDS-REQD-CFG-003 | For Layer 3 multi-rack cluster deployments create the following distributed port groups on the vSphere Distributed Switch for each additional rack:   - ESX management - vMotion - Storage (vSAN/NFS) | - Provides separate networks per rack in a multi-rack deployment. - Storage traffic has a separate isolated layer 2 broadcast domain per rack | Additional port groups will be created for each additional rack |
+| VCF-VDS-SDS-REQD-CFG-004 | For stretched cluster deployments create the following distributed port groups on the vSphere Distributed Switch for availability zone 2   - ESX management - vMotion - vSAN | - Provides separate networks per rack in a multi-rack deployment. - vSAN traffic has a separate isolated layer 2 broadcast domain per availability zone | Additional port groups will be created for availability zone 2 |
+
+Single Distributed Switch Model Design Recommendations
+
+
+
+| Design Recommendations ID | Design Recommendations | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-SDS-RCMD-DPG-001 | Use the **Route based on physical NIC load** teaming algorithm for any storage distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-SDS-RCMD-NIO-001 | Enable Network I/O Control on vSphere Distributed Switch (default setting). | Increases resiliency and performance when network traffic shares uplinks. | Network I/O Control might impact network performance for critical traffic types if misconfigured. |
+| VCF-VDS-SDS-RCMD-NIO-002 | Set the share value for management traffic to Normal (default setting). | By keeping the default setting of Normal, management traffic is prioritized higher than vMotion but lower than vSAN traffic. Management traffic is important because it ensures that the hosts can still be managed during times of network contention. | None. |
+| VCF-VDS-SDS-RCMD-NIO-003 | Set the share value for vMotion traffic to Low (default setting). | During times of network contention, vMotion traffic is not as important as virtual machine or storage traffic. | During times of network contention, vMotion takes longer than usual to complete. |
+| VCF-VDS-SDS-RCMD-NIO-004 | Set the share value for virtual machines to High (default setting). | Virtual machines are the most important asset in a VCF Instance. Leaving the default setting of High ensures that they always have access to the network resources they need. | None. |
+| VCF-VDS-SDS-RCMD-NIO-005 | Set the share value for principal IP-based storage traffic to High (default setting). | During times of network contention, storage traffic needs guaranteed bandwidth to support virtual machine performance. | None. |
+| VCF-VDS-SDS-RCMD-NIO-006 | All other traffic types are set using default settings. | Other traffic types are only added during day 2 operations. | Can be manually adjusted on day 2 if required. |
+
+Common vSAN Design Requirements for All Models
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-REQD-CFG-001 | Minimum vSAN cluster size. | Minimum valid vSAN HCI cluster is three (3) nodes all contributing to storage. | - Supports simple install of a management domain default vSphere cluster only. - A three (3) node vSAN cluster will not offer automatic rebuild of components in the event of a failure. - Using a smaller cluster limits the workload that can be placed on a vSAN cluster.   vSAN Storage Clusters require minimum four (4) vSAN Nodes see [vSAN Single-Rack Storage Cluster Storage Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models(1)/standard-vsan-storage-model/single-rack-storage-models/vsan-storage-cluster-storage-model.html) for more details |
+| VCF-VSAN-REQD-CFG-002 | Provide sufficient raw capacity to meet the initial needs of the workload domain vSphere cluster. | Ensures that sufficient resources are present to create the workload domain vSphere cluster. | Requires determining the workload capacity requirements prior to deployment.  Refer to the [VMware Cloud Foundation Planning and Preparation Workbook](https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/VMware%20Cloud%20Foundation%205.2%20Planning%20and%20Preparation%20Workbook.xlsx) for accurate sizing guidance. |
+| VCF-VSAN-REQD-CFG-003 | vSphere Lifecycle Management (vLCM) image based management is required for vSAN clusters. | - All new vSAN clusters, irrespective of OSA or ESA architectures, are required to be using vSphere Lifecycle Manager images for VMware Cloud Foundation. - As per VCF-CLS-REQD-CFG-003 vSphere Lifecycle Manager images simplify the management of firmware and vendor add-ons. | Imported vSAN OSA clusters may use vLCM baselines, but have to be converted prior to upgrade to VMware Cloud Foundation 9.0. |
+| VCF-VSAN-REQD-CFG-004 | Verify the hardware components used for vSAN deployments are on the vSAN hardware compatibility list. | Helps prevent hardware related issues during workload deployment and operation. | - Requires validating vSAN hardware to ensure its on the compatibility list prior to deployment. - Restricts the number of devices that can be used to a certified list.   Refer to the vSAN hardware compatibility guide for certified hardware [https://compatibilityguide.broadcom.com/.](https://compatibilityguide.broadcom.com/) |
+| VCF-VSAN-REQD-CFG-005 | Do not use NVMe storage devices attached to a Tri-Mode controller for vSAN diskgroups or storage pools. | - Discrete RAID controllers that support SATA/SAS/NVMe are often known as "Tri-mode controllers". - VMware vSAN will **only** support SAS and SATA devices attached to a Tri-mode controller. - NVMe devices attached to Tri-mode controller is **NOT** a vSAN supported configuration.  Refer to knowledge base article [KB314305](https://knowledge.broadcom.com/external/article/314305/vsan-support-of-nvme-devices-behind-trim.html) | - NVMe devices are only supported directly connected to a PCIe slot on the bus. - May require to work with server vendor to verify or modify configurations. |
+| VCF-VSAN-REQD-CFG-006 | For vSAN HCI clusters, excluding vSAN storage clusters, configure the vSAN network gateway IP address as the isolation address for the cluster. | vSphere HA can validate against an IP address on the vSAN network if a host is isolated. | Allocate an additional IP address. Top of rack switches may configure a port for switch virtual interface (SVI) which can be used as the isolation address.  See VCF-VSAN-NET-REQD-CFG-003 |
+| VCF-VSAN-REQD-CFG-007 | For vSAN HCI clusters, excluding vSAN storage clusters, set the advanced cluster setting das.usedefaultisolationaddress to false. | vSphere HA in vSAN uses the ESX hosts management network default gateway IP for isolation detection when configured with default settings. This setting avoids conflicts if vSphere HA and vSAN triggers different responses when failures occur. | May require to configure a SVI (Switched Virtual Interface) gateway address for the VLAN assigned to the vSAN network. |
+
+Common vSAN Design Recommendations for All Models
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-RCMD-CFG-001 | It is recommended to start with four (4) vSAN nodes. | - This ensures vSAN objects will automatically rebuild in the case of a failure or maintenance event. - This allows enabling Reserved Capacity on four (4) node clusters. - This allows space efficient storage polices to be automatically configured when used with vSAN ESA clusters. | This will potentially increase cost and hardware footprint of vSAN cluster. |
+| VCF-VSAN-RCMD-CFG-002 | Include TPM (Trusted Platform Module) in the hardware configuration of the ESX hosts. | Ensures that the keys issued to the hosts in a vSAN cluster using Data-at-Rest Encryption are cryptographically stored on a TPM device. | Can limit the choice of hardware configurations. |
+| VCF-VSAN-RCMD-CFG-003 | Enable Reserved Capacity on vSAN clusters. | - Reserved Capacity will implement a sliding scale storage capacity resource reservation as the vSAN node count increases per vSAN cluster. For example, the Host Rebuild Reserve for a four (4) node cluster would be 25% while it would be just 8% for a twelve (12) node cluster. This avoids imposing a generic 30% capacity overhead of a vSAN Cluster, thus dynamically optimizing reserved storage capacity on vSAN. - Recommendation is to design for vSphere cluster host counts large enough to lower the percentage needed for Reserved Capacity, This will provide the most efficient, yet agile vSphere cluster design. | - When enabled vSAN will impose two soft limits: - **Operations Reserve** - limits for capacity needed to perform transient storage activities like storage policy changes, re-balancing. - **Host Rebuild Reserve** - will reserve the capacity needed to absorb a sustained failure of a single ESX host in a vSAN cluster – to support an N+1 cluster design strategy. - "**Host Rebuild Reserve**" has the following implications in a vSAN storage cluster that consist of only 4 hosts. When paired with the Auto-Policy Management feature, this will prevent vSAN storage clusters from being able to use space-efficient and more performant RAID-5 policy.   vSAN capacity reserve is not supported in conjunction with the following vSAN Cluster typologies:  - Three (3) node clusters. - vSAN stretched clusters. - vSAN clusters using fault domains. |
+| VCF-VSAN-RCMD-CFG-004 | Enable disk Automatic Re-balance. | - When enabled vSAN will attempt to automatically keep the storage consumption of each capacity drive within a default variance threshold of 30%. - This allows vSAN to more evenly distribute the data across the discrete devices to achieve a balanced distribution of resources, and thus, improved performance. | - Adding or scaling out new hosts will trigger a disk rebalance and resynchronization. - When adding or replacing failed resources, automatic rebalance may introduce additional data re-synchronization and as a result additional network traffic utilization  - re-synchronization may have an impact when vSAN clusters are network bandwidth constrained. |
+
+Common vSAN Network Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-NET-REQD-CFG-001 | vSAN requires a high speed, low latency network for synchronous replication of vSAN components.  vSAN can use 10GbE , 25GbE or greater. | 10GbE is the minimum network required for vSAN (ESA and OSA architectures  There is limited support for 10GbE and vSAN ESA.  For vSAN ESA ready node, **vSAN-ESA-AF-0** profile, only supports 10GbE. Please refer to <https://partnerweb.vmware.com/comp_guide2/vsanesa_profile.php> | - Using 10GbE for vSAN networking can **severely** limit vSAN performance and can introduce bandwidth constraints combined with high latency. - Larger vSAN ESA nodes require 25GbE.   Using 10GbE networking on vSAN ESA will trigger a vSAN cluster compliance check.  Please review Broadcom Knowledge base [KB372309](https://knowledge.broadcom.com/external/article/372309/workaround-to-reduce-impact-of-resync-tr.html) |
+| VCF-VSAN-NET-REQD-CFG-002 | - Use a dedicated VLAN for a single rack cluster You can share a single VLAN for multiple vSAN clusters within the same rack  - For stretched cluster topology, use a dedicated VLAN per availability zone. See [vSAN Stretched Cluster Model Design](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models(1)/standard-vsan-storage-model/stretched-cluster-storage-models/stretched-vsan-storage-model.html) - For vSAN HCI multi-rack topology, VLAN requirements will depend on [vSphere Multi-Rack Cluster Detailed Design](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/multi-rack-cluster-detailed-design.html) if using L2 or L3 design | - For a single rack cluster using a dedicated VLAN allows for better storage traffic isolation and security.  - For vSAN Stretched Cluster VCF automated workflows, it is required to have two (2) VLANs, one VLAN per availability zone. | - For a single rack Cluster a VLAN ID must be allocated for use for a vSAN Cluster.  - For a vSAN Stretch Cluster topology two VLAN IDs must be allocated for use in a stretched cluster topology. These VLAN must be routable to each other - For vSAN HCI multi-rack topology, VLAN requirements will depend on the deployment, if using L2 or L3 design |
+| VCF-VSAN-NET-REQD-CFG-003 | - Use one (1) IPv4 IP address subnet for vSAN traffic in a single rack cluster. - For vSAN stretch cluster topology, use two (2) IPv4 subnets, see [VLAN and IP Subnet Requirements for vSAN Stretched Cluster in a VCF Environment](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models(1)/standard-vsan-storage-model/stretched-cluster-storage-models/vsan-stretched-cluster-network-requirements.html) | The vSAN VMkernel in a VMware Cloud Foundation platform requires IPv4 addressing. | - You require an IPv4 subnet configured with a correctly sized subnet to support the number of free IP addresses for each vSAN node in a single rack vSAN Cluster. - A gateway IP is required. |
+
+Common vSAN Network Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-NET-RCMD-CFG-001 | 25GbE or higher for vSAN Data traffic is recommended. | - vSAN synchronous replication requires high bandwidth / low latency intra-node communication. While 10GbE is supported for vSAN 25GbE or higher networking is highly recommended to ensure consistent performance. | None. |
+| VCF-VSAN-NET-RCMD-CFG-002 | **Small scale workloads:** Recommend two (2) physical NICs per vSAN node for small scale workloads, that utilize smaller vSAN ready node profiles.  For vSAN ESA ready node sizing guidance review <https://partnerweb.vmware.com/comp_guide2/vsanesa_profile.php> | - Simplifies deployment to use a single vDS model - During periods of contention NIOC will distribute shares among competing traffic | Requires careful planning to ensure vSAN workload can share resources with other services such as vMotion and NSX workloads.  For high IO intensive workloads, 100GbE networking maybe required for vSAN ready nodes that require two phyiscal nics. |
+| VCF-VSAN-NET-RCMD-CFG-003 | **Large scale workloads:**  Recommend four (4) physical NICs per vSAN node  For large scale / IO intensive workloads based on bigger vSAN ready node profiles.  For vSAN ESA ready node sizing guidance review <https://partnerweb.vmware.com/comp_guide2/vsanesa_profile.php> | - This guarantees storage traffic isolation and full bandwidth of physical network resources on a ESX host. | Additional vSphere Distributed Switches requires increasing management overhead with a higher number of ESX host physical NICs. For more information see  [Storage and Workload Separation Network Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/network-designs/vsphere-cluster-network-models/storage-and-workload-separation-network-model.html)  For high IO intensive workloads, 100GbE networking maybe required to satisfy bandwidth and latency requirements. |
+| VCF-VSAN-NET-RCMD-CFG-004 | Configure the MTU size of the vSphere Distributed Switch to 9000 bytes for jumbo frames. See VCF-VDS-RCMD-CFG-003 | - Supports the MTU size required by system traffic types. Improves traffic throughput. | When adjusting the MTU packet size, you must also configure the entire network path (VMkernel ports, virtual switches, physical switches, and routers) to support the same MTU packet size. |
+| VCF-VSAN-NET-RCMD-CFG-005 | For [Single-Rack Cluster Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/single-instance-single-availability-zone.html) use Layer 2 networking for vSAN. | Layer 2 connectivity between all vSAN hosts sharing the subnet within a single rack simplifies deployment. | None. |
+| VCF-VSAN-NET-RCMD-CFG-006 | For [Layer 3 Multi-Rack Cluster Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/multi-rack-cluster-detailed-design/layer-3-multi-rack-cluster.html) with Layer 3 networking for vSAN. | Reduces fault domain of network to a specific rack and IP segment. | - Routing must be configured between each network subnet. - Host to rack addressing needs to be planned in advance. - Consider the number of hops and additional latency incurred while the traffic gets routed. |
+| VCF-VSAN-NET-RCMD-CFG-007 | Use the Failover Order teaming algorithm for the vSAN storage port group. See VCF-VDS-SS-RCMD-DPG-001 | Provides a consistent traffic flow through a single physical ToR switch without need to traverse Inter Switch Link during normal operations. | It needs to be manually configured during deployment using vSphere Distributed Switches custom profile option. |
+
+vSAN ESA Storage Model Design Requirements
+
+**Note:** vSAN Storage Cluster nodes have higher compute and storage requirements. Please review requirements vSAN Storage Cluster Design Requirements for
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-ESA-REQD-CFG-001 | Ensure vSAN certified Drives used for vSAN ESA clusters. | - When using VMware Cloud Foundation automated workflows, vSAN ESA cluster creation maybe blocked unless vSAN certified drives are detected. - vSAN Auto policy will be enabled when vSAN certified components are detected. This allows vSAN to generate an optimal default storage policy, based on the cluster topology and the number of ESX hosts. | None. |
+| VCF-VSAN-ESA-REQD-CFG-002 | 1.6 TB drive size or higher for vSAN ESA devices for storage pools. | Minimum supported vSAN ESA drive size is 1.6TB. | vSAN ESA supports up to 24 drives per node. Smaller capacity drives may constrain raw capacity of a vSAN node. |
+| VCF-VSAN-ESA-REQD-CFG-003 | 16 Cores or higher per vSAN node. vSAN ESA has a minimum value of 16 cores per vSAN Node | Minimum vSAN ESA core count per node is 16 for the smallest vSAN Ready node, vSAN-ESA-AF-0. | Smaller number of cores per node may require more vSAN nodes to support targeted workloads. |
+| VCF-VSAN-ESA-REQD-CFG-004 | Memory size per vSAN Ready node 128GB or higher | Minimum vSAN ESA memory is 128GB for the smallest vSAN Ready node. vSAN-ESA-AF-0. | - Smaller memory footprint per node will limit number of vSAN drives per node.  - Smaller memory footprint per node for vSAN ESA will limit VM workloads being placed on vSAN nodes. |
+
+vSAN ESA Storage Model Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-ESA-RCMD-CFG-001 | - Specific size of drives used will depend on target workload. - The recommendation is to use multiple storage devices per vSAN node - NVMe TLC devices with a performance Class F (100000 - 349999) or higher with endurance class 3 DWPD or higher. | - The number of storage devices has an impact on the performance of vSAN ESA. - NVMe drives with mixed-use endurance and performance class typically classified on the vSAN HCL as "3DWPD" (3 Drive Writes per Day) will give a balance between performance and durability. | - Smaller drive sizes will impact overall capacity of vSAN ESA. Large drive sizes will introduce larger capacity fault domain in case of failure.  - Sizing vSAN Nodes requires determining the workload capacity requirements prior to deployment. Refer to vSAN Sizer for recommended capacity at [https://vcf.broadcom.com/tools/vsansizer/home.](https://vcf.broadcom.com/tools/vsansizer/home) |
+| VCF-VSAN-ESA-RCMD-CFG-002 | Its recommended to use vSAN ready nodes with high core count. | vSAN Express Storage Architecture (ESA) is designed to be highly parallel and leverages multiple CPU cores for improved performance, making it multithreaded, and optimized for NVMe- TLC based flash devices. | There will be a correlation between target workload, number of cores and NVMe devices per vSAN Node. Refer to vSAN Sizer for recommended capacity at [https://vcf.broadcom.com/tools/vsansizer/home.](https://vcf.broadcom.com/tools/vsansizer/home) |
+| VCF-VSAN-ESA-RCMD-CFG-003 | Its recommended to use vSAN ready nodes with high memory capacity per vSAN node. | When enabled vSAN has required memory overheads and must have adequate resources account for VM workloads. | Refer to vSAN Sizer for recommended capacity at [https://vcf.broadcom.com/tools/vsansizer/home.](https://vcf.broadcom.com/tools/vsansizer/home) |
+| VCF-VSAN-ESA-RCMD-CFG-004 | Recommend at least four (4) nodes for vSAN cluster size. | This ensures in the event of a fault domain failure, vSAN objects can be re-protected to maintain policy compliance.  In conjunction with auto policy management, four (4) node vSAN ESA clusters will allow vSAN to automatically create a default storage policy that is capacity optimized. | None.  vSAN Auto Policy default profile can be can be adjusted by an admin if necessary. |
+| VCF-VSAN-ESA-RCMD-CFG-005 | - It is recommended to select the same minimum requirements for vSAN Storage cluster nodes as vSAN ESA HCI nodes.  - Please review [vSAN Storage minimum node requirements](#GUID-5995eead-f0da-444f-9058-494a413131ad-en_d169e2978) | - vSAN Storage Cluster Nodes use the same architecture as regular vSAN ESA nodes. - vSAN ESA nodes can be re-purposed for vSAN Storage Clusters or vSAN HCI Clusters | None. |
+
+Common NSX Manager Design Requirements for All Models
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-REQD-CFG-001 | Place the appliances of the NSX Manager cluster on the VM management network in the management domain. | - Simplifies IP addressing for management compomentes by using the same VLAN and subnet. - Provides simplified secure access to management components in the same VLAN network. | None. |
+| VCF-NSX-LM-REQD-CFG-002 | Create a virtual IP (VIP) address for the NSX Manager cluster for the workload domain. | - Utilized for user interface and API of NSX Manager. - In a clustered configuration, provides high availability. - In a non-clustered configuration, prepares for future expansion. | - In a clustered configuration, the VIP address feature provides high availability only. It does not load-balance requests across the cluster. - When using the VIP address feature, all NSX Manager nodes must be deployed on the same Layer 2 network. |
+| VCF-NSX-LM-REQD-CFG-003 | In vSphere HA, set the restart priority policy for each NSX Manager appliance to high. | - NSX Manager implements the control plane for virtual network segments. vSphere HA restarts the NSX Manager appliances first so that other virtual machines that are being powered on or migrated by using vSphere vMotion while the control plane is offline lose connectivity only until the control plane quorum is re-established. - Setting the restart priority to high reserves the highest priority for flexibility for adding services that must be started before NSX Manager. | If the restart priority for another management appliance is set to highest, the connectivity delay for management appliances will be longer. |
+
+Common NSX Manager Model Design Recommendations for All Models
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-RCMD-CFG-001 | Deploy appropriately sized nodes in the NSX Manager cluster for the workload domain. Check [VMware Configuration Maximums](https://configmax.broadcom.com/home) to select the right NSX Managers form factor for your scale needs. | Ensures resource availability and usage efficiency per workload domain. | You must have sufficient resources in the management domain default vSphere cluster to run three (3) NSX Manager nodes. |
+
+NSX Manager Simple Deployment Model Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-REQD-CFG-004 | Deploy a single NSX Manager node in the management domain default vSphere cluster for configuring and managing the network services for the VCF domain. | Supports the objective of a small scale deployment. | - Slower recovery from node failure. - Management and control plane impacted during upgrade operations. - Supports limited scale. |
+
+Common NSX Manager Design Recommendations for Stretched Clusters for All Models
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-RCMD-CFG-002 | Add the NSX Manager appliances to the virtual machine group for the first availability zone. | Ensures that, by default, the NSX Manager appliances are powered on a host in the primary availability zone. | None. |
+
+Host Fault Tolerant NSX Edge Cluster Model Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-EDGE-REQD-HFTSR-01 | Deploy two (2) or more NSX Edge nodes in the same vSphere Cluster. | - NSX Edge nodes are required to support centralized network connectivity for the virtual network. - At least two (2) NSX Edge nodes are required to support NSX Edge high-availability. | - Cluster resources must be available to support the NSX Edge nodes. - Additional NSX Edge nodes may be required to satisfy increased bandwidth requirements. |
+
+Host Fault Tolerant NSX Edge Cluster Model Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-EDGE-RCMD-HFTSR-01 | Ensure that NSX Edge nodes belonging to the same NSX Edge cluster are evenly deployed across different hosts.. | Maintain High-Availability and prevent single points of failure | Additional servers are required. |
+| VCF-NSX-EDGE-RCMD-HFTSR-02 | Configure an NSX failure domain for each host where the NSX Edge node can run - this is only valid when you have more than two NSX Edge nodes; map the NSX Edge nodes to the NSX failure domains appropriately. | - Failure domains guarantee service availability in case of a failure affecting multiple NSX Edge nodes. - Active and standby instance of a VPC or Tier-1 gateway always run in different failure domains. | - Additional manual configuration. - This applies only for designs incorporating VPC or Tier-1 gateway in A/S mode. |
+
+## Management Domain (Additional Cluster)
+
+ESX Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-ESX-REQD-CFG-001 | Install no less than the minimum number of ESX hosts required for the vSphere cluster model being deployed. | - Ensures availability requirements are met. - If one of the ESX hosts is not available because of a failure or maintenance event, the CPU over-commitment ratio becomes 2:1. | None. |
+| VCF-ESX-REQD-CFG-002 | Ensure each ESX host matches the required CPU, memory and storage specification. | Ensures workloads will run without contention even during failure and maintenance conditions. | Assemble the server specification and number according to the sizing in [VMware Cloud Foundation Planning and Preparation Workbook](https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/VMware%20Cloud%20Foundation%205.2%20Planning%20and%20Preparation%20Workbook.xlsx) which is based on projected deployment size. |
+| VCF-ESX-REQD-SEC-001 | Regenerate the certificate of each ESX host after assigning the ESX host an FQDN. | Establishes a secure connection with the VCF Installer during the initial deployment and prevents man-in-the-middle (MiTM) attacks. | You must manually regenerate the certificates of the ESX hosts before the deployment. |
+
+ESX Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-ESX-RCMD-CFG-001 | When using vSAN as primary storage in the management domain, use vSAN ReadyNodes for each ESX host. | Your management domain is fully compatible with vSAN at deployment.  For information about the models of physical servers that are vSAN-ready, see [vSAN Compatibility Guide for vSAN ReadyNodes](https://www.vmware.com/resources/compatibility/pdf/vi_vsan_rn_guide.pdf). | - Hardware choices might be limited. - If you plan to use a server configuration that is not a vSAN ReadyNode, your CPU, disks, and I/O modules must be listed on the VMware Compatibility Guide under CPU Series and vSAN Compatibility List aligned to the ESX version. |
+| VCF-ESX-RCMD-CFG-002 | Allocate ESX hosts with uniform configuration across the default management vSphere cluster. | A balanced vSphere cluster has these advantages:   - Predictable performance even during hardware failures. - Minimal impact of resynchronization or rebuild operations on performance. | You must apply vendor sourcing, budgeting, and procurement considerations for uniform server nodes on a per cluster basis. |
+| VCF-ESX-RCMD-CFG-003 | When sizing CPU, do not consider multi-threading technology and associated performance gains. | Although multi-threading technologies increase CPU performance, the performance gain depends on running workloads and differs from one case to another. | Because you must provide more physical CPU cores, costs increase and hardware choices become limited. |
+| VCF-ESX-RCMD-CFG-004 | Install and configure all ESX hosts in the default management vSphere cluster to boot using a 128-GB device or larger. | Provides ESX hosts that have large memory, that is, greater than 512 GB, with enough space for the scratch partition when using vSAN. | None. |
+| VCF-ESX-RCMD-CFG-005 | Use the default configuration for the scratch partition on all ESX hosts in the default management vSphere cluster. | - If a failure in the vSAN cluster occurs, the ESX hosts remain responsive and log information is still accessible. - It is not possible to use a vSAN datastore for the scratch partition. | None. |
+| VCF-ESX-RCMD-CFG-006 | For workloads running in the default management vSphere cluster, save the virtual machine swap file at the default location. | Simplifies the configuration process. | Increases the amount of replication traffic for management workloads that are recovered as part of the disaster recovery process. |
+| VCF-ESX-RCMD-NET-001 | Place the ESX hosts in each management domain vSphere cluster on the ESX management network that is separate from the VM management network. | - Enables the separation of the physical VLAN between ESX hosts and the other management components for security reasons. - The VM management network is not required for a multi-rack compute-only cluster in a workload domain. | Increases the number of VLANs required. |
+| VCF-ESX-RCMD-NET-002 | Place the ESX hosts in each workload domain on a separate ESX host management VLAN-backed network. | Enables the separation of the physical VLAN between the ESX hosts in different workload domains for security reasons. | Increases the number of VLANs required. For each workload domain, you must allocate a separate management subnet. |
+| VCF-ESX-RCMD-NET-003 | Use dedicated VLANs for each traffic type. | Enables the separation of the physical VLAN for vSAN, vMotion, NFS & backup traffic. | Increases the number of VLANs required. For each traffic type you must allocate a separate VLAN and subnet. |
+| VCF-ESX-RCMD-SEC-001 | Set the advanced setting UserVars.SuppressShellWarning to 0 across all ESX hosts in the management domain. | - Ensures compliance with the vSphere Security Configuration Guide and with security best practices - Enables the warning message that appears in the vSphere client every time SSH access is activated on an ESX host. | You must turn off SSH enablement warning messages manually when performing troubleshooting or support activities. |
+
+Common vSphere Cluster Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-CLS-REQD-CFG-001 | Create a vSphere cluster in each workload domain for the initial set of ESX hosts. | - Simplifies configuration by isolating management from customer workloads. - Ensures that customer workloads have no impact on the management stack. | Management of multiple vSphere clusters and vCenter instances increases operational overhead. |
+| VCF-CLS-REQD-CFG-002 | Allocate a minimum number of ESX hosts according to the vSphere cluster type being deployed. | Ensures correct level of redundancy to protect against host failure in the vSphere cluster. | To support redundancy, you must allocate additional ESX host resources. |
+| VCF-CLS-REQD-CFG-003 | Use vSphere Lifecycle Manager images as the life cycle management method for all vSphere clusters.  Imported workload domains may be using vSphere Lifecycle Manager baselines. It is recommended to transition them to use vSphere Lifecycle Manager images. | vSphere Lifecycle Manager images simplify the management of firmware and vendor add-ons manually. | - A vSphere Lifecycle Manager cluster image is required during workload domain or vSphere cluster deployment. |
+| VCF-CLS-REQD-CFG-004 | Use vSphere HA to protect all virtual machines against failures. | vSphere HA supports a robust level of protection for both ESX host and virtual machine availability. | You must provide sufficient resources on the remaining ESX hosts so that virtual machines can be restarted on those hosts in the event of an ESX host outage. |
+
+Common vSphere Cluster Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-CLS-RCMD-CFG-001 | Configure admission control for one (1) ESX host failure and percentage-based failover capacity. | - Using the percentage-based reservation works well in situations where virtual machines have varying and sometimes significant CPU or memory reservations. - vSphere automatically calculates the reserved percentage according to the number of ESX host failures to tolerate and the number of ESX hosts in the vSphere cluster. | In a cluster of four (4) ESX hosts, the resources of only three (3) ESX hosts are available for use. |
+| VCF-CLS-RCMD-CFG-002 | Enable VM Monitoring for each vSphere cluster. | VM Monitoring provides in-guest protection for most VM workloads. The application or service running on the virtual machine must be capable of restarting successfully after a reboot or the virtual machine restart is not sufficient. | None. |
+| VCF-CLS-RCMD-CFG-003 | Set the advanced vSphere cluster setting das.iostatsinterval to 60 to deactivate monitoring the storage and network I/O activities of the management appliances. | Enables triggering a restart of a management appliance when an OS failure occurs and heartbeats are not received from VMware Tools instead of waiting additionally for the I/O check to complete. | If you want to specifically enable I/O monitoring, you must configure the das.iostatsinterval advanced setting. |
+| VCF-CLS-RCMD-CFG-004 | Enable vSphere DRS on all vSphere clusters, using the default fully automated mode with medium threshold. | Provides the best trade-off between load balancing and unnecessary migrations with vMotion. | If a vCenter outage occurs, the mapping from virtual machines to ESX hosts might be difficult to determine. |
+| VCF-CLS-RCMD-CFG-005 | Enable Enhanced vMotion Compatibility (EVC) on all vSphere clusters in the management domain. | Supports vSphere cluster upgrades without virtual machine downtime. | - You must enable EVC only if the vSphere clusters contain ESX hosts with CPUs from the same vendor. - You must enable EVC on the default management domain vSphere cluster during bringup using the API and a JSON spec. |
+| VCF-CLS-RCMD-CFG-006 | Set the vSphere cluster EVC mode to the highest available baseline that is supported for the lowest CPU architecture on the ESX hosts in the vSphere cluster. | Supports vSphere cluster upgrades without virtual machine downtime. | None. |
+| VCF-CLS-RCMD-CFG-007 | If running business workloads in the management domain, configure the following vSphere resource pools to control resource usage by management and business workloads.   - cluster-name-rp-sddc-mgmt - cluster-name-rp-sddc-edge - cluster-name-rp-user-edge - cluster-name-rp-user-vm | Ensures sufficient resources for the management components. | You must manually create the vSphere resource pools and manage their settings over time. |
+| VCF-CLS-RCMD-CFG-008 | Use vSphere Cluster Services (vCLS) Retreat Mode. | System managed vCLS mode is deprecated. | You must manually change the vCLS mode. |
+
+Common Distributed Switch Design Requirements
+
+
+
+| Design Requirements ID | Design Requirements | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-COM-REQD-CFG-001 | Do not share a vSphere Distributed Switch across different vSphere clusters.  (This applies to a greenfield deployment of a cluster using VCF automated workflows) | - Enables independent lifecycle management of vSphere Distributed Switch per vSphere cluster. - Reduces the size of the fault domain. | For multiple vSphere clusters, you manage more vSphere Distributed Switches. |
+
+Common Distributed Switch Design Recommendations
+
+
+
+| Design Recommendations ID | Design Recommendations | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-COM-RCMD-CFG-001 | Configure the MTU size of the vSphere Distributed Switch to 9000 bytes for jumbo frames. | - Supports the MTU size required by system traffic types. - Improves traffic throughput. | When adjusting the MTU packet size, you must also configure the entire network path (VMkernel ports, virtual switches, physical switches, and routers) to support the same MTU packet size. |
+| VCF-VDS-COM-RCMD-CFG-002 | For NSX enabled vSphere Distributed Switch with Overlay or VLAN transport zone configure Enhanced Datapath Standard. | Provides the best performance for bandwidth and packets per second for the edge nodes running on the cluster. | The physical NIC must support the Enhanced Datapath - Interrupt Mode feature. |
+| VCF-VDS-COM-RCMD-DPG-001 | Use ephemeral port binding for the VM management distributed port group (default setting). | - Using ephemeral port binding provides the option to recover the vCenter instance that is managing the vSphere Distributed Switch. - The VM management network is not required for a multi-rack compute-only cluster in a VI workload domain | Port-level permissions and controls are lost across power cycles, and no historical context is saved. |
+| VCF-VDS-COM-RCMD-DPG-002 | Use static port binding for all non-management distributed port groups (default setting). | Static binding ensures a virtual machine connects to the same port on the vSphere Distributed Switch. This allows for historical data and port-level monitoring. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-COM-RCMD-DPG-003 | Use the **Route based on physical NIC load** teaming algorithm for the VM management distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-COM-RCMD-DPG-004 | Use the **Route based on physical NIC load** teaming algorithm for the ESX management distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-COM-RCMD-DPG-005 | Use the **Route based on physical NIC load** teaming algorithm for the vMotion distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+
+Single Distributed Switch Model Design Requirements
+
+
+
+| Design Requirements ID | Design Requirements | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-SDS-REQD-CFG-001 | Use a single vSphere Distributed Switch per vSphere cluster. | Reduces the complexity of the network design. | Reduces the number of vSphere Distributed Switches that must be managed per vSphere cluster. |
+| VCF-VDS-SDS-REQD-CFG-002 | Create the following distributed port groups on the vSphere Distributed Switch:   - VM management (mgmt domain only) - ESX management - vMotion - Storage | Provides the required network services for the vSphere cluster. | VM management distributed port group needs to be manually created on additional vSphere clusters in the management domain and any workload domain vSphere clusters. |
+| VCF-VDS-SDS-REQD-CFG-003 | For Layer 3 multi-rack cluster deployments create the following distributed port groups on the vSphere Distributed Switch for each additional rack:   - ESX management - vMotion - Storage (vSAN/NFS) | - Provides separate networks per rack in a multi-rack deployment. - Storage traffic has a separate isolated layer 2 broadcast domain per rack | Additional port groups will be created for each additional rack |
+| VCF-VDS-SDS-REQD-CFG-004 | For stretched cluster deployments create the following distributed port groups on the vSphere Distributed Switch for availability zone 2   - ESX management - vMotion - vSAN | - Provides separate networks per rack in a multi-rack deployment. - vSAN traffic has a separate isolated layer 2 broadcast domain per availability zone | Additional port groups will be created for availability zone 2 |
+
+Single Distributed Switch Model Design Recommendations
+
+
+
+| Design Recommendations ID | Design Recommendations | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VDS-SDS-RCMD-DPG-001 | Use the **Route based on physical NIC load** teaming algorithm for any storage distributed port group (default setting). | Reduces the complexity of the network design, increases resiliency, and can adjust to fluctuating workloads. | Traffic not always deterministic, can be configured to another teaming policy during or after deployment if required. |
+| VCF-VDS-SDS-RCMD-NIO-001 | Enable Network I/O Control on vSphere Distributed Switch (default setting). | Increases resiliency and performance when network traffic shares uplinks. | Network I/O Control might impact network performance for critical traffic types if misconfigured. |
+| VCF-VDS-SDS-RCMD-NIO-002 | Set the share value for management traffic to Normal (default setting). | By keeping the default setting of Normal, management traffic is prioritized higher than vMotion but lower than vSAN traffic. Management traffic is important because it ensures that the hosts can still be managed during times of network contention. | None. |
+| VCF-VDS-SDS-RCMD-NIO-003 | Set the share value for vMotion traffic to Low (default setting). | During times of network contention, vMotion traffic is not as important as virtual machine or storage traffic. | During times of network contention, vMotion takes longer than usual to complete. |
+| VCF-VDS-SDS-RCMD-NIO-004 | Set the share value for virtual machines to High (default setting). | Virtual machines are the most important asset in a VCF Instance. Leaving the default setting of High ensures that they always have access to the network resources they need. | None. |
+| VCF-VDS-SDS-RCMD-NIO-005 | Set the share value for principal IP-based storage traffic to High (default setting). | During times of network contention, storage traffic needs guaranteed bandwidth to support virtual machine performance. | None. |
+| VCF-VDS-SDS-RCMD-NIO-006 | All other traffic types are set using default settings. | Other traffic types are only added during day 2 operations. | Can be manually adjusted on day 2 if required. |
+
+Common vSAN Design Requirements for All Models
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-REQD-CFG-001 | Minimum vSAN cluster size. | Minimum valid vSAN HCI cluster is three (3) nodes all contributing to storage. | - Supports simple install of a management domain default vSphere cluster only. - A three (3) node vSAN cluster will not offer automatic rebuild of components in the event of a failure. - Using a smaller cluster limits the workload that can be placed on a vSAN cluster.   vSAN Storage Clusters require minimum four (4) vSAN Nodes see [vSAN Single-Rack Storage Cluster Storage Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models(1)/standard-vsan-storage-model/single-rack-storage-models/vsan-storage-cluster-storage-model.html) for more details |
+| VCF-VSAN-REQD-CFG-002 | Provide sufficient raw capacity to meet the initial needs of the workload domain vSphere cluster. | Ensures that sufficient resources are present to create the workload domain vSphere cluster. | Requires determining the workload capacity requirements prior to deployment.  Refer to the [VMware Cloud Foundation Planning and Preparation Workbook](https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/VMware%20Cloud%20Foundation%205.2%20Planning%20and%20Preparation%20Workbook.xlsx) for accurate sizing guidance. |
+| VCF-VSAN-REQD-CFG-003 | vSphere Lifecycle Management (vLCM) image based management is required for vSAN clusters. | - All new vSAN clusters, irrespective of OSA or ESA architectures, are required to be using vSphere Lifecycle Manager images for VMware Cloud Foundation. - As per VCF-CLS-REQD-CFG-003 vSphere Lifecycle Manager images simplify the management of firmware and vendor add-ons. | Imported vSAN OSA clusters may use vLCM baselines, but have to be converted prior to upgrade to VMware Cloud Foundation 9.0. |
+| VCF-VSAN-REQD-CFG-004 | Verify the hardware components used for vSAN deployments are on the vSAN hardware compatibility list. | Helps prevent hardware related issues during workload deployment and operation. | - Requires validating vSAN hardware to ensure its on the compatibility list prior to deployment. - Restricts the number of devices that can be used to a certified list.   Refer to the vSAN hardware compatibility guide for certified hardware [https://compatibilityguide.broadcom.com/.](https://compatibilityguide.broadcom.com/) |
+| VCF-VSAN-REQD-CFG-005 | Do not use NVMe storage devices attached to a Tri-Mode controller for vSAN diskgroups or storage pools. | - Discrete RAID controllers that support SATA/SAS/NVMe are often known as "Tri-mode controllers". - VMware vSAN will **only** support SAS and SATA devices attached to a Tri-mode controller. - NVMe devices attached to Tri-mode controller is **NOT** a vSAN supported configuration.  Refer to knowledge base article [KB314305](https://knowledge.broadcom.com/external/article/314305/vsan-support-of-nvme-devices-behind-trim.html) | - NVMe devices are only supported directly connected to a PCIe slot on the bus. - May require to work with server vendor to verify or modify configurations. |
+| VCF-VSAN-REQD-CFG-006 | For vSAN HCI clusters, excluding vSAN storage clusters, configure the vSAN network gateway IP address as the isolation address for the cluster. | vSphere HA can validate against an IP address on the vSAN network if a host is isolated. | Allocate an additional IP address. Top of rack switches may configure a port for switch virtual interface (SVI) which can be used as the isolation address.  See VCF-VSAN-NET-REQD-CFG-003 |
+| VCF-VSAN-REQD-CFG-007 | For vSAN HCI clusters, excluding vSAN storage clusters, set the advanced cluster setting das.usedefaultisolationaddress to false. | vSphere HA in vSAN uses the ESX hosts management network default gateway IP for isolation detection when configured with default settings. This setting avoids conflicts if vSphere HA and vSAN triggers different responses when failures occur. | May require to configure a SVI (Switched Virtual Interface) gateway address for the VLAN assigned to the vSAN network. |
+
+Common vSAN Design Recommendations for All Models
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-RCMD-CFG-001 | It is recommended to start with four (4) vSAN nodes. | - This ensures vSAN objects will automatically rebuild in the case of a failure or maintenance event. - This allows enabling Reserved Capacity on four (4) node clusters. - This allows space efficient storage polices to be automatically configured when used with vSAN ESA clusters. | This will potentially increase cost and hardware footprint of vSAN cluster. |
+| VCF-VSAN-RCMD-CFG-002 | Include TPM (Trusted Platform Module) in the hardware configuration of the ESX hosts. | Ensures that the keys issued to the hosts in a vSAN cluster using Data-at-Rest Encryption are cryptographically stored on a TPM device. | Can limit the choice of hardware configurations. |
+| VCF-VSAN-RCMD-CFG-003 | Enable Reserved Capacity on vSAN clusters. | - Reserved Capacity will implement a sliding scale storage capacity resource reservation as the vSAN node count increases per vSAN cluster. For example, the Host Rebuild Reserve for a four (4) node cluster would be 25% while it would be just 8% for a twelve (12) node cluster. This avoids imposing a generic 30% capacity overhead of a vSAN Cluster, thus dynamically optimizing reserved storage capacity on vSAN. - Recommendation is to design for vSphere cluster host counts large enough to lower the percentage needed for Reserved Capacity, This will provide the most efficient, yet agile vSphere cluster design. | - When enabled vSAN will impose two soft limits: - **Operations Reserve** - limits for capacity needed to perform transient storage activities like storage policy changes, re-balancing. - **Host Rebuild Reserve** - will reserve the capacity needed to absorb a sustained failure of a single ESX host in a vSAN cluster – to support an N+1 cluster design strategy. - "**Host Rebuild Reserve**" has the following implications in a vSAN storage cluster that consist of only 4 hosts. When paired with the Auto-Policy Management feature, this will prevent vSAN storage clusters from being able to use space-efficient and more performant RAID-5 policy.   vSAN capacity reserve is not supported in conjunction with the following vSAN Cluster typologies:  - Three (3) node clusters. - vSAN stretched clusters. - vSAN clusters using fault domains. |
+| VCF-VSAN-RCMD-CFG-004 | Enable disk Automatic Re-balance. | - When enabled vSAN will attempt to automatically keep the storage consumption of each capacity drive within a default variance threshold of 30%. - This allows vSAN to more evenly distribute the data across the discrete devices to achieve a balanced distribution of resources, and thus, improved performance. | - Adding or scaling out new hosts will trigger a disk rebalance and resynchronization. - When adding or replacing failed resources, automatic rebalance may introduce additional data re-synchronization and as a result additional network traffic utilization  - re-synchronization may have an impact when vSAN clusters are network bandwidth constrained. |
+
+Common vSAN Network Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-NET-REQD-CFG-001 | vSAN requires a high speed, low latency network for synchronous replication of vSAN components.  vSAN can use 10GbE , 25GbE or greater. | 10GbE is the minimum network required for vSAN (ESA and OSA architectures  There is limited support for 10GbE and vSAN ESA.  For vSAN ESA ready node, **vSAN-ESA-AF-0** profile, only supports 10GbE. Please refer to <https://partnerweb.vmware.com/comp_guide2/vsanesa_profile.php> | - Using 10GbE for vSAN networking can **severely** limit vSAN performance and can introduce bandwidth constraints combined with high latency. - Larger vSAN ESA nodes require 25GbE.   Using 10GbE networking on vSAN ESA will trigger a vSAN cluster compliance check.  Please review Broadcom Knowledge base [KB372309](https://knowledge.broadcom.com/external/article/372309/workaround-to-reduce-impact-of-resync-tr.html) |
+| VCF-VSAN-NET-REQD-CFG-002 | - Use a dedicated VLAN for a single rack cluster You can share a single VLAN for multiple vSAN clusters within the same rack  - For stretched cluster topology, use a dedicated VLAN per availability zone. See [vSAN Stretched Cluster Model Design](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models(1)/standard-vsan-storage-model/stretched-cluster-storage-models/stretched-vsan-storage-model.html) - For vSAN HCI multi-rack topology, VLAN requirements will depend on [vSphere Multi-Rack Cluster Detailed Design](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/multi-rack-cluster-detailed-design.html) if using L2 or L3 design | - For a single rack cluster using a dedicated VLAN allows for better storage traffic isolation and security.  - For vSAN Stretched Cluster VCF automated workflows, it is required to have two (2) VLANs, one VLAN per availability zone. | - For a single rack Cluster a VLAN ID must be allocated for use for a vSAN Cluster.  - For a vSAN Stretch Cluster topology two VLAN IDs must be allocated for use in a stretched cluster topology. These VLAN must be routable to each other - For vSAN HCI multi-rack topology, VLAN requirements will depend on the deployment, if using L2 or L3 design |
+| VCF-VSAN-NET-REQD-CFG-003 | - Use one (1) IPv4 IP address subnet for vSAN traffic in a single rack cluster. - For vSAN stretch cluster topology, use two (2) IPv4 subnets, see [VLAN and IP Subnet Requirements for vSAN Stretched Cluster in a VCF Environment](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models(1)/standard-vsan-storage-model/stretched-cluster-storage-models/vsan-stretched-cluster-network-requirements.html) | The vSAN VMkernel in a VMware Cloud Foundation platform requires IPv4 addressing. | - You require an IPv4 subnet configured with a correctly sized subnet to support the number of free IP addresses for each vSAN node in a single rack vSAN Cluster. - A gateway IP is required. |
+
+Common vSAN Network Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-NET-RCMD-CFG-001 | 25GbE or higher for vSAN Data traffic is recommended. | - vSAN synchronous replication requires high bandwidth / low latency intra-node communication. While 10GbE is supported for vSAN 25GbE or higher networking is highly recommended to ensure consistent performance. | None. |
+| VCF-VSAN-NET-RCMD-CFG-002 | **Small scale workloads:** Recommend two (2) physical NICs per vSAN node for small scale workloads, that utilize smaller vSAN ready node profiles.  For vSAN ESA ready node sizing guidance review <https://partnerweb.vmware.com/comp_guide2/vsanesa_profile.php> | - Simplifies deployment to use a single vDS model - During periods of contention NIOC will distribute shares among competing traffic | Requires careful planning to ensure vSAN workload can share resources with other services such as vMotion and NSX workloads.  For high IO intensive workloads, 100GbE networking maybe required for vSAN ready nodes that require two phyiscal nics. |
+| VCF-VSAN-NET-RCMD-CFG-003 | **Large scale workloads:**  Recommend four (4) physical NICs per vSAN node  For large scale / IO intensive workloads based on bigger vSAN ready node profiles.  For vSAN ESA ready node sizing guidance review <https://partnerweb.vmware.com/comp_guide2/vsanesa_profile.php> | - This guarantees storage traffic isolation and full bandwidth of physical network resources on a ESX host. | Additional vSphere Distributed Switches requires increasing management overhead with a higher number of ESX host physical NICs. For more information see  [Storage and Workload Separation Network Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/network-designs/vsphere-cluster-network-models/storage-and-workload-separation-network-model.html)  For high IO intensive workloads, 100GbE networking maybe required to satisfy bandwidth and latency requirements. |
+| VCF-VSAN-NET-RCMD-CFG-004 | Configure the MTU size of the vSphere Distributed Switch to 9000 bytes for jumbo frames. See VCF-VDS-RCMD-CFG-003 | - Supports the MTU size required by system traffic types. Improves traffic throughput. | When adjusting the MTU packet size, you must also configure the entire network path (VMkernel ports, virtual switches, physical switches, and routers) to support the same MTU packet size. |
+| VCF-VSAN-NET-RCMD-CFG-005 | For [Single-Rack Cluster Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/single-instance-single-availability-zone.html) use Layer 2 networking for vSAN. | Layer 2 connectivity between all vSAN hosts sharing the subnet within a single rack simplifies deployment. | None. |
+| VCF-VSAN-NET-RCMD-CFG-006 | For [Layer 3 Multi-Rack Cluster Model](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/multi-rack-cluster-detailed-design/layer-3-multi-rack-cluster.html) with Layer 3 networking for vSAN. | Reduces fault domain of network to a specific rack and IP segment. | - Routing must be configured between each network subnet. - Host to rack addressing needs to be planned in advance. - Consider the number of hops and additional latency incurred while the traffic gets routed. |
+| VCF-VSAN-NET-RCMD-CFG-007 | Use the Failover Order teaming algorithm for the vSAN storage port group. See VCF-VDS-SS-RCMD-DPG-001 | Provides a consistent traffic flow through a single physical ToR switch without need to traverse Inter Switch Link during normal operations. | It needs to be manually configured during deployment using vSphere Distributed Switches custom profile option. |
+
+vSAN ESA Storage Model Design Requirements
+
+**Note:** vSAN Storage Cluster nodes have higher compute and storage requirements. Please review requirements vSAN Storage Cluster Design Requirements for
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-ESA-REQD-CFG-001 | Ensure vSAN certified Drives used for vSAN ESA clusters. | - When using VMware Cloud Foundation automated workflows, vSAN ESA cluster creation maybe blocked unless vSAN certified drives are detected. - vSAN Auto policy will be enabled when vSAN certified components are detected. This allows vSAN to generate an optimal default storage policy, based on the cluster topology and the number of ESX hosts. | None. |
+| VCF-VSAN-ESA-REQD-CFG-002 | 1.6 TB drive size or higher for vSAN ESA devices for storage pools. | Minimum supported vSAN ESA drive size is 1.6TB. | vSAN ESA supports up to 24 drives per node. Smaller capacity drives may constrain raw capacity of a vSAN node. |
+| VCF-VSAN-ESA-REQD-CFG-003 | 16 Cores or higher per vSAN node. vSAN ESA has a minimum value of 16 cores per vSAN Node | Minimum vSAN ESA core count per node is 16 for the smallest vSAN Ready node, vSAN-ESA-AF-0. | Smaller number of cores per node may require more vSAN nodes to support targeted workloads. |
+| VCF-VSAN-ESA-REQD-CFG-004 | Memory size per vSAN Ready node 128GB or higher | Minimum vSAN ESA memory is 128GB for the smallest vSAN Ready node. vSAN-ESA-AF-0. | - Smaller memory footprint per node will limit number of vSAN drives per node.  - Smaller memory footprint per node for vSAN ESA will limit VM workloads being placed on vSAN nodes. |
+
+vSAN ESA Storage Model Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-VSAN-ESA-RCMD-CFG-001 | - Specific size of drives used will depend on target workload. - The recommendation is to use multiple storage devices per vSAN node - NVMe TLC devices with a performance Class F (100000 - 349999) or higher with endurance class 3 DWPD or higher. | - The number of storage devices has an impact on the performance of vSAN ESA. - NVMe drives with mixed-use endurance and performance class typically classified on the vSAN HCL as "3DWPD" (3 Drive Writes per Day) will give a balance between performance and durability. | - Smaller drive sizes will impact overall capacity of vSAN ESA. Large drive sizes will introduce larger capacity fault domain in case of failure.  - Sizing vSAN Nodes requires determining the workload capacity requirements prior to deployment. Refer to vSAN Sizer for recommended capacity at [https://vcf.broadcom.com/tools/vsansizer/home.](https://vcf.broadcom.com/tools/vsansizer/home) |
+| VCF-VSAN-ESA-RCMD-CFG-002 | Its recommended to use vSAN ready nodes with high core count. | vSAN Express Storage Architecture (ESA) is designed to be highly parallel and leverages multiple CPU cores for improved performance, making it multithreaded, and optimized for NVMe- TLC based flash devices. | There will be a correlation between target workload, number of cores and NVMe devices per vSAN Node. Refer to vSAN Sizer for recommended capacity at [https://vcf.broadcom.com/tools/vsansizer/home.](https://vcf.broadcom.com/tools/vsansizer/home) |
+| VCF-VSAN-ESA-RCMD-CFG-003 | Its recommended to use vSAN ready nodes with high memory capacity per vSAN node. | When enabled vSAN has required memory overheads and must have adequate resources account for VM workloads. | Refer to vSAN Sizer for recommended capacity at [https://vcf.broadcom.com/tools/vsansizer/home.](https://vcf.broadcom.com/tools/vsansizer/home) |
+| VCF-VSAN-ESA-RCMD-CFG-004 | Recommend at least four (4) nodes for vSAN cluster size. | This ensures in the event of a fault domain failure, vSAN objects can be re-protected to maintain policy compliance.  In conjunction with auto policy management, four (4) node vSAN ESA clusters will allow vSAN to automatically create a default storage policy that is capacity optimized. | None.  vSAN Auto Policy default profile can be can be adjusted by an admin if necessary. |
+| VCF-VSAN-ESA-RCMD-CFG-005 | - It is recommended to select the same minimum requirements for vSAN Storage cluster nodes as vSAN ESA HCI nodes.  - Please review [vSAN Storage minimum node requirements](#GUID-5995eead-f0da-444f-9058-494a413131ad-en_d169e2978) | - vSAN Storage Cluster Nodes use the same architecture as regular vSAN ESA nodes. - vSAN ESA nodes can be re-purposed for vSAN Storage Clusters or vSAN HCI Clusters | None. |
+
+Common NSX Manager Design Requirements for All Models
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-REQD-CFG-001 | Place the appliances of the NSX Manager cluster on the VM management network in the management domain. | - Simplifies IP addressing for management compomentes by using the same VLAN and subnet. - Provides simplified secure access to management components in the same VLAN network. | None. |
+| VCF-NSX-LM-REQD-CFG-002 | Create a virtual IP (VIP) address for the NSX Manager cluster for the workload domain. | - Utilized for user interface and API of NSX Manager. - In a clustered configuration, provides high availability. - In a non-clustered configuration, prepares for future expansion. | - In a clustered configuration, the VIP address feature provides high availability only. It does not load-balance requests across the cluster. - When using the VIP address feature, all NSX Manager nodes must be deployed on the same Layer 2 network. |
+| VCF-NSX-LM-REQD-CFG-003 | In vSphere HA, set the restart priority policy for each NSX Manager appliance to high. | - NSX Manager implements the control plane for virtual network segments. vSphere HA restarts the NSX Manager appliances first so that other virtual machines that are being powered on or migrated by using vSphere vMotion while the control plane is offline lose connectivity only until the control plane quorum is re-established. - Setting the restart priority to high reserves the highest priority for flexibility for adding services that must be started before NSX Manager. | If the restart priority for another management appliance is set to highest, the connectivity delay for management appliances will be longer. |
+
+Common NSX Manager Model Design Recommendations for All Models
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-RCMD-CFG-001 | Deploy appropriately sized nodes in the NSX Manager cluster for the workload domain. Check [VMware Configuration Maximums](https://configmax.broadcom.com/home) to select the right NSX Managers form factor for your scale needs. | Ensures resource availability and usage efficiency per workload domain. | You must have sufficient resources in the management domain default vSphere cluster to run three (3) NSX Manager nodes. |
+
+NSX Manager Simple Deployment Model Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-REQD-CFG-004 | Deploy a single NSX Manager node in the management domain default vSphere cluster for configuring and managing the network services for the VCF domain. | Supports the objective of a small scale deployment. | - Slower recovery from node failure. - Management and control plane impacted during upgrade operations. - Supports limited scale. |
+
+Common NSX Manager Design Recommendations for Stretched Clusters for All Models
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-LM-RCMD-CFG-002 | Add the NSX Manager appliances to the virtual machine group for the first availability zone. | Ensures that, by default, the NSX Manager appliances are powered on a host in the primary availability zone. | None. |
+
+Common NSX Edge for Single Availability Zone Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-EDGE-REQD-COMSAZ-01 | Align the Tunnel Endpoint (TEP) MTU for NSX Edge nodes to the same MTU as the VDS MTU. | Consistent MTU within the same NSX Overlay Transport Zone is required. | Requires manual configuration of the Tunnel Endpoint (TEP) MTU value in NSX Global Fabric Settings. |
+
+Common NSX Edge for Single Availability Zone Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-EDGE-RCMD-COMSAZ-01 | Dedicated vSphere cluster to exclusively host NSX Edge nodes. | - NSX Edge nodes use dedicated and exclusively host resources (CPU, memory, pNIC) to provide best packet forwarding performance, reliability and operational simplification. - Enables the selection of an independent vSphere Distributed Switch design separate from the vSphere cluster hosting workload virtual machines. - Enable specific hardware selection for NSX Edge node hosts. | Additional servers are required. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-02 | Limit the number of NSX Edge nodes per host to the number of available physical NICs. | Each NSX Edge node should be connected to a pair of physical NICs to ensure maximum packet forwarding rates (PPS). | Additional physical NICs or hosts, or both are required to support the deployment of a higher number of NSX Edge nodes. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-03 | Use the default memory reservation with 100% for NSX Edge nodes. | The 100% memory reservation configuration is a guaranteed minimum allocation of host physical memory that is entirely dedicated to a NSX Edge node, ensuring this full memory amount remains available to the NSX Edge node even when the host system is in an over-committed state. | In a collapsed cluster where other workload VMs have memory reservation too:  - Virtual machines may fail to power on when memory reservations can't be guaranteed, even if idle reserved memory exists. - vSphere HA may be unable to restart VMs after host failures if it cannot meet their memory reservations on surviving hosts.Memory reservation locks physical RAM, while CPU reservation guarantees minimum access to a shared resource. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-04 | Use the default CPU reservation priority in NSX set to high shares for NSX Edge nodes. | Setting CPU shares to "High" ensures that NSX Edge nodes receive higher relative priority during CPU contention scenarios, allowing critical network functions to maintain performance when host resources are constrained. | High CPU reservations are generally less critical than high memory reservations. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-05 | For each NSX Edge node, assign a dedicated physical NIC to the data plane fastpath interfaces fp-eth0 and fp-eth1. | - Each NSX Edge node leverages only two of four data plane fastpath interfaces. - When two NSX Edge nodes are deployed per host, each NSX Edge node should use a dedicated pair of physical NICs - one active and one standby. - When deploying two NSX Edge nodes per host, each NSX Edge node requires two dedicated physical NICs configured for optimal performance. | The two remaining data plane fastpath interfaces per NSX Edge node are not used. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-06 | Map data plane fastpath interface fp-eth0 with physical NIC 1 as active and physical NIC 2 as standby; map data plane fastpath interface fp-eth1 with physical NIC 1 as standby and physical NIC 2 as active, creating complementary failover paths. | Enables redundant paths for both data plane fastpath interfaces on each NSX Edge node, preventing single points of failure. | None. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-07 | Create a new dvPortGroup for the NSX Edge node management interface, separate from the dvPortGroup used for ESX host management VMkernel. Depending on the selected NSX Edge cluster design, an NSX Edge node management dvPortGroup is required for each vSphere cluster, rack, or Availability Zone. | Traffic segregation enables organizations to implement and enforce network security policies. | - Increased configuration effort. - For a management domain: a separate dvPortGroup for the NSX Edge node management interface already exists when using a single VDS design; this is the same dvPortGroup as used for the management stack. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-08 | Create for every host an individual host group. | Host groups will be required to enable compute policy type Best Effort Restart (BER). | Host groups must be configured through the administrator before initiating the NSX or vCenter Network Connectivity workflow. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-09 | Create for every NSX Edge node an individual VM group. | VM groups will be required to enable compute policy type Best Effort Restart (BER). | The NSX or vCenter Network Connectivity workflow automatically configures VM groups when the host group affinity option is selected. Do not create this VM group manually. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-10 | Assign to each individual NSX Edge node the previously configured host group. | Each NSX Edge node has a 1:1 affinity with the underlying ESX host. | If the assignment was not set through the NSX or vCenter Network Connectivity workflow , it can be added via NSX API. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-11 | Create a VM/Host "must" rule by mapping the previously created host group and VM group together, ensuring the NSX Edge node in the VM group must only run on this specific host. | VM/Host "must" rule for each NSX Edge node will be required to enable compute policy type Best Effort Restart (BER). | The NSX or vCenter Network Connectivity workflow automatically configures VM/Host rule when the host group affinity option is selected. Do not create this VM/host rule manually. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-12 | Create a vCenter tag with a category to identify the compute policy type Best Effort Restart (BER) and assign it to each NSX Edge node. | The vCenter tag with a category is required to map both the compute policy type Best Effort Restart (BER) and the NSX Edge nodes together. | The NSX or vCenter Network Connectivity workflow automatically configures the vCenter tag with a category and assign to each NSX Edge node when the host group affinity option is selected. Do not create the vCenter tag and category manually. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-13 | Create a compute policy type Best Effort Restart (BER) and assign the previously created vCenter tag and category to it. | - Compute policy type Best Effort Restart (BER) enables smooth rolling host upgrades leveraging graceful NSX Edge node shutdown to minimize traffic disruption. - The compute policy type Best Effort Restart (BER) verifies peer NSX Edge node readiness during host upgrades through multiple pre-checks before initiating NSX Edge node failover and ensures the NSX Edge node shutdown process begins gracefully only after successful pre-checks. | - The NSX or vCenter Network Connectivity workflow automatically configures the compute policy type Best Effort Restart (BER) when the host group affinity option is selected. Do not create this compute policy type Best Effort Restart (BER) manually. - Evacuating the NSX Edge node using vMotion during host upgrades or maintenance is not possible. - User-initiated host maintenance mode will shut down the hosted NSX Edge node regardless of whether a healthy peer NSX Edge node is available to take over, as readiness pre-checks are not executed during this process; it is the administrator's responsibility to ensure service availability is maintained. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-14 | Select the NSX Edge node size large or x-large. | - The size of an NSX Edge node depends on the throughput requirements and any configured centralized network services. - For most deployments, particularly when NSX Edge nodes are used solely for north-south traffic forwarding, the large NSX Edge node size provides an optimal balance between performance and resource utilization. | - You must provide sufficient compute resources to support the chosen NSX Edge node size. - In vSphere clusters with a high density of NSX Edge nodes, such as multi-tenancy environments with high oversubscription ratios or collapsed vSphere clusters where both workload virtual machines and NSX Edge nodes run on the same hosts, the resource requirements of large or extra large NSX Edge nodes occasionally create resource constraints. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-15 | Select the auto-generation password option for NSX Edge nodes. | Auto-generation password option enables centralized password management in VCF Operations. | Password needs to be looked up to gain SSH access. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-16 | Select static IP allocation for the NSX Edge node management interface. | Static IP allocation removes the dependency on external DHCP services. | None. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-17 | - Configure separate Tunnel Endpoint (TEP) VLANs for NSX Edge nodes and ESX hosts. - It is possible to use a single TEP VLAN across host and NSX Edge node by enabling "NSX on dvPG". | - Simplifies Tunnel Endpoint (TEP) IP management by separating IP allocation methods between ESX hosts and NSX Edge nodes, for example using static IP assignment for NSX Edge nodes while utilizing DHCP-based allocation for ESXi hosts. - No need to enable "NSX on dvPG". | - NSX Edge nodes and host Tunnel Endpoint (TEP) require separate VLANs with routing configured between them to enable proper overlay network communication. - Requires the configuration of ab additional VLAN for NSX Edge node Tunnel Endpoint (TEP) traffic. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-18 | Configure IP Pool allocation for the NSX Edge node Tunnel Endpoint (TEP) interfaces. | - IP Pool allocation eliminates dependency on external DHCP services while reducing configuration overhead compared to static IP assignment. - Each of the two data plane fastpath interfaces get an IP address assigned to enable NSX Edge node Tunnel Endpoint (TEP) | Requires the configuration of one or more IP Pools depending on the vSphere cluster model. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-19 | Enable TEP Groups for NSX Edge nodes. | - Higher throughput achievable by a single NSX Edge node. - Granular flow base load balancing of NSX Edge node TEP traffic. - Resiliency to partial link failures (Physical link state up but not forwarding). | TEP Groups must be enabled through NSX API globally for all NSX Edge nodes. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-20 | Limit the span of NSX Edge node networks to the local racks. | - VLANs including NSX Edge node Tunnel Endpoint (TEP), the NSX Edge node management and the two (2) Edge Uplink VLANs that carry BGP sessions and north-south traffic are limited to the rack. - BGP will establish peering connections exclusively with Top-of-Rack (ToR) switches located within the same rack, ensuring a deterministic alignment between physical components (ToRs and cabling) and the corresponding BGP session. | - Limit the span of networks to reduce failure propagation across racks. - Avoid BGP peering across racks. |
+| VCF-NSX-EDGE-RCMD-COMSAZ-21 | Use a single Edge Switch in the NSX Edge nodes. | - Simplifies deployment of NSX Edge nodes. - Supports multiple Tunnel Endpoint (TEP) interfaces. - Carries both overlay and uplink traffic. | The NSX or vCenter Network Connectivity workflow automatically configures always a single Edge Switch. |
+
+Host Fault Tolerant NSX Edge Cluster Model Design Requirements
+
+
+
+| Design Requirement ID | Design Requirement | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-EDGE-REQD-HFTSR-01 | Deploy two (2) or more NSX Edge nodes in the same vSphere Cluster. | - NSX Edge nodes are required to support centralized network connectivity for the virtual network. - At least two (2) NSX Edge nodes are required to support NSX Edge high-availability. | - Cluster resources must be available to support the NSX Edge nodes. - Additional NSX Edge nodes may be required to satisfy increased bandwidth requirements. |
+
+Host Fault Tolerant NSX Edge Cluster Model Design Recommendations
+
+
+
+| Design Recommendation ID | Design Recommendation | Justification | Implication |
+| --- | --- | --- | --- |
+| VCF-NSX-EDGE-RCMD-HFTSR-01 | Ensure that NSX Edge nodes belonging to the same NSX Edge cluster are evenly deployed across different hosts.. | Maintain High-Availability and prevent single points of failure | Additional servers are required. |
+| VCF-NSX-EDGE-RCMD-HFTSR-02 | Configure an NSX failure domain for each host where the NSX Edge node can run - this is only valid when you have more than two NSX Edge nodes; map the NSX Edge nodes to the NSX failure domains appropriately. | - Failure domains guarantee service availability in case of a failure affecting multiple NSX Edge nodes. - Active and standby instance of a VPC or Tier-1 gateway always run in different failure domains. | - Additional manual configuration. - This applies only for designs incorporating VPC or Tier-1 gateway in A/S mode. |

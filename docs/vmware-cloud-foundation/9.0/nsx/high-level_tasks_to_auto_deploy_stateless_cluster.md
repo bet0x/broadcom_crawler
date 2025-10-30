@@ -1,0 +1,27 @@
+---
+source_url: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/high-level-tasks-to-auto-deploy-stateless-cluster.html
+product: vmware-cloud-foundation
+version: 9.0
+section: NSX
+breadcrumb: NSX > High-Level Tasks to Auto Deploy Stateless Cluster
+---
+
+# High-Level Tasks to Auto Deploy Stateless Cluster
+
+High-level tasks to auto deploy a stateless cluster.
+
+The high-level tasks to set up an auto deploy stateless cluster are:
+
+1. Prerequisites and Supported Versions. See [Prerequisites and Supported Versions](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/prerequisites-and-supported-versions.html#GUID-e2f6f0cd-7b31-41ea-aa26-57e91471a98e).
+2. (Reference host) Create a Custom Image Profile. See [Create a Custom Image Profile for Stateless Hosts](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/create-a-custom-image-profile-for-stateless-hosts.html#GUID-b8c05103-0a74-4216-98b9-d72917caee83).
+3. (Reference and Target hosts) Associate the Custom Image Profile. See [Associate the Custom Image with the Reference and Target Hosts](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/associate-the-custom-image.html#GUID-ca0066c1-fa94-41f2-8e77-b4e681de6eae).
+4. (Reference host) Set up Network Configuration in ESX. See [Set Up Network Configuration on the Reference Host](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/set-up-network-configuration-on-the-reference-host.html#GUID-657de35b-88ad-4c3f-a8e4-b9d4a1f6917c).
+5. (Reference host) Configure as a Transport Node in NSX. See [Configure the Reference Host as a Transport Node in NSX](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/configure-the-reference-host-as-a-transport-node-in-nsx.html#GUID-43f1b620-3f58-4915-b770-189e184aa24f).
+6. (Reference host) Extract and Verify Host Profile. See [Extract and Verify the Host Profile](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/extract-and-verify-the-host-profile.html#GUID-a5db2fbf-9959-4bee-943b-492461adedbf).
+7. (Reference and Target hosts) Verify the Host Profile Association with Stateless Cluster. See [Verify the Host Profile Association with Stateless Cluster](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/verify-the-host-profile-association-with-stateless-cluster.html#GUID-809fffdf-6153-43c1-a4c7-082bdf0cd535).
+8. (Reference host) Update Host Customization. See [Update Host Customization](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/update-host-customization.html#GUID-79515e0d-cd50-48f7-b887-201679f4f290).
+9. (Target hosts) Trigger Auto Deployment. See [Trigger Auto Deployment on Target Hosts](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/trigger-auto-deployment-on-target-hosts.html#GUID-e893d88a-19a5-4653-974a-05d014c8e6b9).
+   1. Before applying Transport Node Profile. See [Reboot Hosts Before Applying TNP](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/trigger-auto-deployment-on-target-hosts/reboot-hosts-before-applying-tnp.html#GUID-d0232889-18b9-4f1e-957d-a9200a1024f0).
+   2. Apply Transport Node Profile. See [Apply TNP on Stateless Cluster](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/trigger-auto-deployment-on-target-hosts/apply-tnp-on-stateless-cluster.html#GUID-34fae82d-b47e-41bc-bb61-5bcdbd2ec3d8).
+   3. After applying Transport Node Profile. See [Reboot Hosts After Applying TNP](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/trigger-auto-deployment-on-target-hosts/reboot-hosts-after-applying-tnp.html#GUID-52fa9a09-bd76-424e-8c89-f361c4dfe122).
+10. Troubleshoot Host Profile and Transport Node Profile. See [Troubleshoot Host Profile and Transport Node Profile](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/host-profile-integration-with-nsx/auto-deploy-stateless-cluster/troubleshoot-host-profile-and-transport-node-profile.html#GUID-3e36eb9a-892a-44e6-9f12-838605a0333c).
