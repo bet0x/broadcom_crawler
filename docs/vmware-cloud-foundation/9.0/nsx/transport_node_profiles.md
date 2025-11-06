@@ -67,7 +67,7 @@ node profile, these outcomes are true:
 - When you move a transport node
   from the cluster to an unprepared cluster or directly as a standalone host
   under the data center, first the transport node configuration applied to the
-  node is removed and then NSX VIBs are removed from the host. See [Uninstall from the vSphere Client](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/operations-and-management/uninstall-nsx-from-a-host-transport-node/triggering-uninstallation-from-the-vsphere-web-client.html#GUID-d9ef4315-b564-4f7a-b0f5-9582cf3efa9c).
+  node is removed and then NSX VIBs are removed from the host. See [Uninstall from the vSphere Client](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/triggering-uninstallation-from-the-vsphere-web-client.html#GUID-d9ef4315-b564-4f7a-b0f5-9582cf3efa9c).
 
 To delete a transport node profile, you
 must first detach the profile from the associated cluster. The existing transport

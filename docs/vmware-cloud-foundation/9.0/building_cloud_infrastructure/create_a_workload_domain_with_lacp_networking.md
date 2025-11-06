@@ -8,9 +8,9 @@ breadcrumb: Building Cloud Infrastructure > Create a Workload Domain with LACP N
 
 # Create a Workload Domain with LACP Networking
 
-You use the VCF Operations API to create a workload domain, configured to use LACP networking
+You use the VCF Operations API to create a workload domain with LACP networking
 
-The physical network infrastructure in your environment must meet certain requirements for deployment of a workload domain, configured to use LACP on the vSphere Distrivuted Switch.
+The physical network infrastructure in your environment must meet certain requirements for deployment of a workload domain, configured to use LACP on the vSphere Distributed Switch.
 
 For each host on which you want to use LACP, you must create a separate LACP port channel on the physical switches. You must consider the following requirements when configuring LACP on the physical switches:
 
@@ -100,7 +100,7 @@ Please contact the physical switch vendor for any specific configuration require
                    }
                  ]
                }
-             },
+             }
            ],
            "datastoreSpec": {
              "vsanDatastoreSpec": {
@@ -144,6 +144,19 @@ Please contact the physical switch vendor for any specific configuration require
                      ]
                    }
                  ],
+                 "nsxtSwitchConfig": {
+                   "hostSwitchOperationalMode": "STANDARD",
+                   "transportZones": [
+                     {
+                       "name": "nsx-vlan-transportzone",
+                       "transportType": "VLAN"
+                     },
+                     {
+                       "name": "overlay-tz-sfo-w01-nsx01",
+                       "transportType": "OVERLAY"
+                     }
+                   ]
+                 },
                  "lagSpecs": [
                    {
                      "name": "lag",
@@ -263,8 +276,8 @@ Please contact the physical switch vendor for any specific configuration require
    }
    ```
 2. In the navigation pane of the VCF Operation UI click Developer CenterAPIs & SDKsAPI Explorer
-3. Click the VCF Instance in which you want to create the new workload domain with LACP networking configuration.
-4. Retrieve the unique IDs for each ESX host that will be part of the stretched cluster and add the IDs to the JSON specification file.
+3. Click the VCF Instance in which you want to create the new workload domain,
+4. Retrieve the unique IDs for each ESX host that are part of the stretched cluster and add the IDs to the JSON specification file.
    1. Navigate to HostsGET /v1/hosts.
    2. In the Status text box, enter UNASSIGNED\_USEABLE and click Execute.
    3. In the Response section, click PageOfHost, copy the id element of each host, and replace the respective value in the JSON specification file.
@@ -274,7 +287,10 @@ Please contact the physical switch vendor for any specific configuration require
    | ESX Host 1 | ESX host 1 ID |
    | ESX Host 2 | ESX host 2 ID |
    | ESX Host 3 | ESX host 3 ID |
-5. Retrieve the vSphere Lifecycle Manager image ID to use for the cluster and add the ID to the JSON specification file. Navigate to PersonalitiesGET /v1/personalities. Click Execute. In the Response section, click the personality representing the image you want to use, copy the personalityId element, and replace the <personality ID> value in the JSON specification file.
+5. Retrieve the vSphere Lifecycle Manager image ID to use for the cluster and add the ID to the JSON specification file.
+   1. Navigate to PersonalitiesGET /v1/personalities and click Execute.
+   2. In the Response section, click the image.
+   3. Copy the personalityId element and replace the <personality ID> value in the JSON specification file.
 6. Expand the Domains API category.
 7. To validate the JSON specification, paste the JSON specification in the body of the POST /v1/domains/validations API and click Execute.
 8. To create the workload domain, paste the JSON specification in the body of the POST /v1/domains/ API and click Execute.

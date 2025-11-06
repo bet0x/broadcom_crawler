@@ -15,8 +15,8 @@ You can use an NSX load balancer with the management appliance and with VCF Auto
 - Persistence - Source-IP
 - Health check monitors - Active monitor which includes TCP, UDP, and ICMP, and passive monitor
 - SNAT - Transparent, Automap, and IP List
-- The Load Balancing runbook lists the topology for the given load balancer instance.
+- he Load Balancing runbook lists the topology for the given load balancer instance.
 
 Note: SSL -Terminate-mode and proxy-mode is not supported in NSX limited export release.
 
-![A diagram of load balancer features.](/content/broadcom/techdocs/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/_jcr_content/assetversioncopies/2673ce53-a014-4f7a-9e8e-b9d959dc1f4c.original.png)
+![A diagram of load balancer features.](/content/broadcom/techdocs/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/_jcr_content/assetversioncopies/12bac052-cdc1-4aa0-b8b9-a2e5377234de.original.png)

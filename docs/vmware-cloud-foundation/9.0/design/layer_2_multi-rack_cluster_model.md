@@ -51,7 +51,7 @@ You choose the number of ESX hosts per vSphere cluster based on storage type and
 | Attribute | Storage Type | Management Domain (First Cluster) Simple Deployment of Management Components | Management Domain (First Cluster) HA Deployment of Management Components | Management Domain (Additional Clusters)  Workload Domain (All Clusters) |
 | --- | --- | --- | --- | --- |
 | Minimum number of ESX hosts | vSAN | Three (3) | Four (4) | Three (3) |
-| VMFS on FC\*  NFS\* | Two (2) | Three (3) | Two (2) |
+| VMFS on FC\*  NFS\* | Two (2) | Four (3) | Two (2) |
 
 vSphere clusters are configured allowing for the failure of a single ESX host while still having enough resources to run all vSphere cluster workloads.
 

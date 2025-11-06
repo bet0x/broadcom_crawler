@@ -59,7 +59,7 @@ Supported Configurations
 
    | Option | Description |
    | --- | --- |
-   | Deployment Size | - Standard: Deploys single-node NSX Manager requiring fewer resources. - High-Availability (recommended): Deploys a three-node NSX Manager cluster to enhance the availability of management and control plane functions, as well as minimize downtime during upgrades. |
+   | Deployment Size | - Standard: Deploys single-node NSX Manager requiring fewer resources. You can choose a standard deployment size only when importing a vCenter 9.0 and later instance. - High-Availability (recommended): Deploys a three-node NSX Manager cluster to enhance the availability of management and control plane functions, as well as minimize downtime during upgrades. |
    | Appliance Size | - Medium - Large - Extra Large |
    | Appliance 1 FQDN | Enter the FQDN for the first NSX Manager node. |
    | Appliance 2 FQDN | Enter the FQDN for the second NSX Manager node. |

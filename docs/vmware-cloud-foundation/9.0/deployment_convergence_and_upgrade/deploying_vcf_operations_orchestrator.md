@@ -3,10 +3,10 @@ source_url: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later
 product: vmware-cloud-foundation
 version: 9.0
 section: Deployment, Convergence, and Upgrade
-breadcrumb: Deployment, Convergence, and Upgrade > Deploying VCF Operations orchestrator
+breadcrumb: Deployment, Convergence, and Upgrade > Deploying VCF Operations Orchestrator
 ---
 
-# Deploying VCF Operations orchestrator
+# Deploying VCF Operations Orchestrator
 
 Before you can access the VCF Operations orchestrator content in your VCF environment, deploy the VCF Operations orchestrator appliance.
 

@@ -12,6 +12,11 @@ You can configure NSX appliances, NSX Edges, and hypervisors to send log message
 
 - Familiarize yourself with the CLI command set logging-server. For more information, see the NSX Command-Line Interface Reference.
 - If you specify the secure protocol TLS or LI-TLS, the server and client certificates must be stored in /image/vmware/nsx/file-store on each NSX appliance. Note that certificates in the file store are needed only if the exporter is configured using NSX CLI. If you use the API, then there is no need to use the file store. Once you complete the syslog exporter configuration, you must delete all certificates and keys from this location to avoid potential security vulnerabilities.
+
+  Note that a TLS logging server does not support replacing of certificates. When a TLS logging server certificate is about to expire or gets expired, you must perform the follwoing steps:
+
+  - Delete the existing TLS logging server by using an API or CLI.
+  - Put the new certificate under /image/vmware/nsx/file-store and create a new TLS logging server with new certificate again.
 - To configure a secure connection to a log server, verify that the server is configured with a CA-signed certificates. For example, if you have a VCF Operations for logs server vrli.prome.local as the log server, you can run the following command from a client to see the certificate chain on the server:
 
   ```

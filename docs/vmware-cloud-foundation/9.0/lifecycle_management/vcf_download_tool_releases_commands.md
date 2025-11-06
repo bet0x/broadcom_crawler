@@ -27,7 +27,7 @@ Proxy Server Options
 | Option | Description |
 | --- | --- |
 | --proxy-https | Add this option if the proxy server uses HTTPs. |
-| --proxy-user-password-file proxyServerPasswordFile | For a proxy server that requires authentication, replace proxyServerPasswordFile with the path to a file where the password for proxy authentication is stored. The file content is used as the proxy password.  For example, --proxyPasswordFile ../../password.txt. |
+| --proxy-user-password-file proxyServerPasswordFile | For a proxy server that requires authentication, replace proxyServerPasswordFile with the path to a file where the password for proxy authentication is stored. The file content is used as the proxy password.  For example, --proxyPasswordFile ../../password.txt.  The supported proxy authentication methods are Basic and NTLMv1. |
 | -r proxyServerUserName or  --proxy-user proxyServerUserName | For a proxy server that requires authentication, replace proxyServerUserName with the user name. |
 | -s proxyServerHostName or  --proxy-server proxyServerHostName | Replace proxyServerHostName with the proxy server FQDN and port.  For example: --proxy-server proxy.example.com:3128. |
 

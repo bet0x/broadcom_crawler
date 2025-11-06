@@ -19,5 +19,5 @@ If SDDC Manager does not have direct internet access, you can configure a proxy 
 7. Enter the proxy server IP address and port number.
 8. If your proxy server requires authentication, toggle the Authentication setting to the on position and enter the user name and password.
 
-   VMware Cloud Foundation does not support proxy servers with NTLMv2 authentication.
+   The supported proxy authentication methods are Basic and NTLMv1.
 9. Click Save.

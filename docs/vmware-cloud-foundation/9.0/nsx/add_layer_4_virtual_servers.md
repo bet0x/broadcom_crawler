@@ -12,7 +12,7 @@ Virtual servers receive all the client connections and distribute them among the
 
 - Verify that application profiles are available.
 - Verify that persistent profiles are available. See [Add a Persistence Profile](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/load-balancer/setting-up-load-balancer-components/setting-up-virtual-server-components/add-a-persistence-profile.html#GUID-e960708f-3c67-4619-85a2-be6708fab778-en).
-- Verify that SSL profiles for the client and server are available. See [Add an SSL Profile](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/load-balancer/setting-up-load-balancer-components/setting-up-virtual-server-components/add-an-ssl-profile.html#GUID-43856964-2dd1-484a-a28f-761288d9c987-en).
+- Verify that SSL profiles for the client and server are available. See [Add an SSL Profile](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/add-an-ssl-profile.html#GUID-43856964-2dd1-484a-a28f-761288d9c987-en).
 - Verify that server pools are available. See [Add a Server Pool](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/load-balancer/setting-up-load-balancer-components/add-a-server-pool.html#GUID-cf0f0b05-0c6a-4f8a-b5f0-9bae38680b17-en).
 - Verify that load balancer is available. See [Add Load Balancers](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/load-balancer/setting-up-load-balancer-components/add-load-balancers.html#GUID-79f8e85d-185c-4f87-be2f-125592ed47a4-en).
 

@@ -10,12 +10,299 @@ import sys
 from typing import Optional, Dict, Any, List
 import io
 import os
+from datetime import datetime
+import traceback
 from rag_api_client import RAGApiClient
 
 # Chunking configuration for MCP RAG
 CHUNKER = 'recursive'
 CHUNK_SIZE = 1024
 CHUNK_OVERLAP_PERCENTAGE = 20.0
+
+# Manifest file name (stored under docs/<product>/<version>/)
+MANIFEST_FILENAME = 'manifest.json'
+# Error log file name
+ERROR_LOG_FILENAME = 'crawl_errors.log'
+
+# Retry configuration
+MAX_RETRIES = 10
+# Retry delays: immediate, then 1m, 3m, 5m, 10m, then 15m max for remaining attempts
+RETRY_DELAYS = [0, 60, 180, 300, 600, 900, 900, 900, 900, 900]
+
+
+def _manifest_path(base_dir: Path) -> Path:
+    return base_dir / MANIFEST_FILENAME
+
+
+def _error_log_path(base_dir: Path) -> Path:
+    return base_dir / ERROR_LOG_FILENAME
+
+
+def log_error(base_dir: Path, url: str, error: Exception, context: str = "") -> None:
+    """Log error to file with timestamp and full traceback."""
+    log_path = _error_log_path(base_dir)
+    timestamp = datetime.now().isoformat()
+    
+    with open(log_path, 'a', encoding='utf-8') as f:
+        f.write(f"\n{'='*80}\n")
+        f.write(f"Timestamp: {timestamp}\n")
+        f.write(f"URL: {url}\n")
+        if context:
+            f.write(f"Context: {context}\n")
+        f.write(f"Error Type: {type(error).__name__}\n")
+        f.write(f"Error Message: {str(error)}\n")
+        f.write(f"\nTraceback:\n")
+        f.write(traceback.format_exc())
+        f.write(f"{'='*80}\n")
+
+
+def retry_request_with_backoff(
+    url: str,
+    base_dir: Optional[Path] = None,
+    context: str = "",
+    **kwargs
+) -> requests.Response:
+    """Make HTTP request with exponential backoff retry logic.
+    
+    Retry schedule:
+    - Attempt 1: immediate (0s)
+    - Attempt 2: 60s (1 minute)
+    - Attempt 3: 180s (3 minutes)
+    - Attempt 4: 300s (5 minutes)
+    - Attempt 5: 600s (10 minutes)
+    - Attempts 6-10: 900s (15 minutes max)
+    
+    Args:
+        url: URL to request
+        base_dir: Optional base directory for error logging
+        context: Optional context string for error logging
+        **kwargs: Additional arguments to pass to requests.get()
+    
+    Returns:
+        requests.Response object
+    
+    Raises:
+        requests.RequestException: If all retries are exhausted
+    """
+    last_exception = None
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, **kwargs)
+            # Check for HTTP errors (4xx, 5xx) - these might be retryable too
+            response.raise_for_status()
+            return response
+        except (requests.exceptions.RequestException, requests.exceptions.HTTPError) as e:
+            last_exception = e
+            
+            # Log error
+            if base_dir is not None:
+                log_error(base_dir, url, e, f"{context} (Attempt {attempt + 1}/{MAX_RETRIES})")
+            
+            # If this was the last attempt, don't wait
+            if attempt == MAX_RETRIES - 1:
+                break
+            
+            # Get delay for this attempt
+            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else RETRY_DELAYS[-1]
+            
+            if delay > 0:
+                delay_minutes = delay / 60
+                print(f"    ⚠️ Connection error (attempt {attempt + 1}/{MAX_RETRIES}): {type(e).__name__}")
+                print(f"    ⏳ Waiting {delay_minutes:.1f} minutes before retry...")
+                time.sleep(delay)
+            else:
+                print(f"    ⚠️ Connection error (attempt {attempt + 1}/{MAX_RETRIES}): {type(e).__name__}")
+                print(f"    🔄 Retrying immediately...")
+    
+    # All retries exhausted
+    if base_dir is not None:
+        log_error(base_dir, url, last_exception, f"{context} (All {MAX_RETRIES} attempts exhausted)")
+    
+    raise last_exception
+
+
+def load_manifest(base_dir: Path, product: str, version: str) -> Dict[str, Any]:
+    """Load or initialize a manifest JSON that tracks per-URL progress.
+
+    The manifest structure:
+    {
+        "product": str,
+        "version": str,
+        "created_at": iso8601,
+        "updated_at": iso8601,
+        "items": {
+            source_url: {
+                "filename": str,
+                "local_path": str,
+                "section": str,
+                "is_downloaded": bool,
+                "is_uploaded": bool
+            }
+        }
+    }
+    """
+    path = _manifest_path(base_dir)
+    now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    if path.exists():
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = f.read()
+            import json
+            manifest = json.loads(data) if data else {}
+            if not isinstance(manifest, dict):
+                manifest = {}
+        except Exception:
+            manifest = {}
+    else:
+        manifest = {}
+
+    if 'product' not in manifest:
+        manifest['product'] = product
+    if 'version' not in manifest:
+        manifest['version'] = version
+    if 'created_at' not in manifest:
+        manifest['created_at'] = now_iso
+    if 'items' not in manifest or not isinstance(manifest['items'], dict):
+        manifest['items'] = {}
+    manifest['updated_at'] = now_iso
+    return manifest
+
+
+def save_manifest_atomic(base_dir: Path, manifest: Dict[str, Any]) -> None:
+    """Write manifest to disk atomically (write .tmp then rename)."""
+    import json
+    path = _manifest_path(base_dir)
+    tmp_path = path.with_suffix(path.suffix + '.tmp')
+    manifest['updated_at'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    with open(tmp_path, 'w', encoding='utf-8') as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
+
+
+def update_manifest_entry(
+    base_dir: Path,
+    manifest: Dict[str, Any],
+    *,
+    source_url: str,
+    filename: str,
+    local_path: str,
+    section: str,
+    is_downloaded: Optional[bool] = None,
+    is_uploaded: Optional[bool] = None,
+) -> None:
+    items = manifest.setdefault('items', {})
+    entry = items.get(source_url, {})
+    entry['filename'] = filename
+    entry['local_path'] = local_path
+    entry['section'] = section
+    if is_downloaded is not None:
+        entry['is_downloaded'] = bool(is_downloaded)
+    if is_uploaded is not None:
+        entry['is_uploaded'] = bool(is_uploaded)
+    # Defaults
+    if 'is_downloaded' not in entry:
+        entry['is_downloaded'] = False
+    if 'is_uploaded' not in entry:
+        entry['is_uploaded'] = False
+    items[source_url] = entry
+    save_manifest_atomic(base_dir, manifest)
+
+
+def _parse_front_matter(filepath: Path) -> Optional[Dict[str, str]]:
+    """Parse YAML front matter from a markdown file. Returns dict with metadata or None."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if not content.startswith('---'):
+            return None
+        
+        # Split on '---\n' delimiter
+        parts = content.split('\n---\n', 1)
+        if len(parts) < 2:
+            return None
+        
+        front_matter_text = parts[0].lstrip('---').strip()
+        metadata = {}
+        
+        # Simple YAML parser for key: value pairs
+        for line in front_matter_text.split('\n'):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if ':' in line:
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                metadata[key] = value
+        
+        return metadata if metadata else None
+    except Exception:
+        return None
+
+
+def rebuild_manifest_from_existing_files(
+    base_dir: Path,
+    manifest: Dict[str, Any],
+    *,
+    client: Optional[RAGApiClient] = None,
+    collection_id: Optional[int] = None,
+) -> int:
+    """Scan existing .md files in base_dir and add them to manifest.
+    
+    Returns the number of files added/updated in the manifest.
+    """
+    added_count = 0
+    items = manifest.setdefault('items', {})
+    
+    # Find all .md files recursively
+    for md_file in base_dir.rglob('*.md'):
+        # Skip manifest itself if somehow it's a .md
+        if md_file.name == MANIFEST_FILENAME.replace('.json', '.md'):
+            continue
+        
+        # Parse front matter
+        metadata = _parse_front_matter(md_file)
+        if not metadata:
+            continue
+        
+        source_url = metadata.get('source_url')
+        if not source_url:
+            continue
+        
+        # If already in manifest, skip (don't overwrite)
+        if source_url in items:
+            continue
+        
+        section = metadata.get('section', 'unknown')
+        filename = md_file.name
+        local_path = str(md_file)
+        
+        # Check if uploaded by querying server
+        is_uploaded = False
+        if client is not None and collection_id is not None:
+            existing = find_document_in_collection_by_filename(client, collection_id, filename)
+            if existing is not None:
+                status = existing.get('status')
+                if status == 'completed':
+                    is_uploaded = True
+        
+        # Add to manifest
+        items[source_url] = {
+            'filename': filename,
+            'local_path': local_path,
+            'section': section,
+            'is_downloaded': True,  # File exists, so it's downloaded
+            'is_uploaded': is_uploaded,
+        }
+        added_count += 1
+    
+    # Save manifest if we added anything
+    if added_count > 0:
+        save_manifest_atomic(base_dir, manifest)
+    
+    return added_count
 
 
 def get_or_create_collection(client: RAGApiClient, name: str) -> int:
@@ -175,7 +462,7 @@ def extract_main_content(soup):
     
     return markdown
 
-def extract_toc_from_json(base_url, toc_json_url=None):
+def extract_toc_from_json(base_url, toc_json_url=None, base_dir: Optional[Path] = None):
     """Extrae el TOC desde el JSON endpoint de Broadcom"""
     import json
 
@@ -189,7 +476,11 @@ def extract_toc_from_json(base_url, toc_json_url=None):
         toc_json_url = urljoin(base_url, toc_path)
 
     try:
-        response = requests.get(toc_json_url)
+        response = retry_request_with_backoff(
+            toc_json_url,
+            base_dir=base_dir,
+            context="Extracting TOC from JSON"
+        )
         if response.status_code != 200:
             return []
 
@@ -228,10 +519,10 @@ def extract_toc_from_json(base_url, toc_json_url=None):
         return []
 
 
-def extract_toc_sidebar(soup, base_url):
+def extract_toc_sidebar(soup, base_url, base_dir: Optional[Path] = None):
     """Extrae el TOC del sidebar (página de contenido)"""
     # Primero intentar obtener el TOC desde el JSON endpoint
-    toc_items = extract_toc_from_json(base_url)
+    toc_items = extract_toc_from_json(base_url, base_dir=base_dir)
 
     if toc_items:
         return toc_items
@@ -406,7 +697,7 @@ def sanitize_filename(title):
     filename = filename[:100]
     return filename + '.md'
 
-def save_page(markdown_content, filepath, url="", product="", version="", section="", breadcrumb=None, *, client: Optional[RAGApiClient] = None, collection_id: Optional[int] = None):
+def save_page(markdown_content, filepath, url="", product="", version="", section="", breadcrumb=None, *, client: Optional[RAGApiClient] = None, collection_id: Optional[int] = None, manifest: Optional[Dict[str, Any]] = None, base_dir_for_manifest: Optional[Path] = None):
     """Saves markdown content to a file with metadata and optionally uploads to MCP RAG.
 
     If `client` and `collection_id` are provided, the saved file is uploaded
@@ -482,15 +773,47 @@ def save_page(markdown_content, filepath, url="", product="", version="", sectio
 
     print(f"    ✓ Saved: {filepath.name}")
 
+    # Update manifest: mark as downloaded
+    if manifest is not None and base_dir_for_manifest is not None and url:
+        update_manifest_entry(
+            base_dir_for_manifest,
+            manifest,
+            source_url=url,
+            filename=filepath.name,
+            local_path=str(filepath),
+            section=section,
+            is_downloaded=True,
+        )
+
     # Optional upload-and-assign step
     if client is not None and collection_id is not None:
         doc_id = upload_markdown_and_assign(client, str(filepath), collection_id)
         if doc_id is None:
             print("    ⊘ Skipped upload (duplicate)")
+            if manifest is not None and base_dir_for_manifest is not None and url:
+                update_manifest_entry(
+                    base_dir_for_manifest,
+                    manifest,
+                    source_url=url,
+                    filename=filepath.name,
+                    local_path=str(filepath),
+                    section=section,
+                    is_uploaded=True,
+                )
         else:
             print(f"    ✓ Uploaded and assigned document_id={doc_id}")
+            if manifest is not None and base_dir_for_manifest is not None and url:
+                update_manifest_entry(
+                    base_dir_for_manifest,
+                    manifest,
+                    source_url=url,
+                    filename=filepath.name,
+                    local_path=str(filepath),
+                    section=section,
+                    is_uploaded=True,
+                )
 
-def crawl_section(section_url, base_dir, section_name, base_path, visited_urls, version_base_url=None, product="", version="", depth=0, *, client: Optional[RAGApiClient] = None, collection_id: Optional[int] = None):
+def crawl_section(section_url, base_dir, section_name, base_path, visited_urls, version_base_url=None, product="", version="", depth=0, *, client: Optional[RAGApiClient] = None, collection_id: Optional[int] = None, manifest: Optional[Dict[str, Any]] = None):
     """Crawls a specific section and all its sub-pages"""
 
     indent = "  " * depth
@@ -502,30 +825,72 @@ def crawl_section(section_url, base_dir, section_name, base_path, visited_urls, 
     visited_urls.add(section_url)
 
     try:
+        # Always download section page to get TOC (TOC might change)
         print(f"{indent}→ Downloading: {section_url}")
-        response = requests.get(section_url)
+        response = retry_request_with_backoff(
+            section_url,
+            base_dir=base_dir,
+            context=f"Downloading section: {section_name}"
+        )
         soup = BeautifulSoup(response.content, 'html.parser')
 
         # Clean section name
         clean_section_name = sanitize_filename(section_name).replace('.md', '')
+        main_file = base_dir / f'{clean_section_name}.md'
 
-        # Extract and save main section content
-        # Saved as <section_name>.md in the base directory
-        content = extract_main_content(soup)
-        if content:
-            main_file = base_dir / f'{clean_section_name}.md'
-            # Main section page - breadcrumb is just the section name
-            save_page(
-                content,
-                main_file,
-                section_url,
-                product=product,
-                version=version,
-                section=section_name,
-                breadcrumb=[section_name],
-                client=client,
-                collection_id=collection_id,
-            )
+        # Check if already downloaded (manifest + file exists) - skip saving but still extract TOC
+        skip_save = False
+        if manifest is not None:
+            entry = manifest.get('items', {}).get(section_url)
+            if entry and entry.get('is_downloaded') is True and main_file.exists():
+                skip_save = True
+                print(f"{indent}  ⊘ File already exists, skipping save (will check upload)")
+
+        # Extract and save main section content (unless already saved)
+        if not skip_save:
+            content = extract_main_content(soup)
+            if content:
+                # Main section page - breadcrumb is just the section name
+                save_page(
+                    content,
+                    main_file,
+                    section_url,
+                    product=product,
+                    version=version,
+                    section=section_name,
+                    breadcrumb=[section_name],
+                    client=client,
+                    collection_id=collection_id,
+                    manifest=manifest,
+                    base_dir_for_manifest=base_dir,
+                )
+        else:
+            # File exists but check if upload is needed
+            if manifest is not None:
+                entry = manifest.get('items', {}).get(section_url)
+                if entry and entry.get('is_uploaded') is not True and client is not None and collection_id is not None:
+                    # Re-read file and try to upload
+                    with open(main_file, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
+                    # Extract content without front matter for upload
+                    if file_content.startswith('---'):
+                        parts = file_content.split('\n---\n', 1)
+                        if len(parts) == 2:
+                            file_content = parts[1].lstrip('\n')
+                    # Use save_page to handle upload (it will skip local write if exists)
+                    save_page(
+                        file_content,
+                        main_file,
+                        section_url,
+                        product=product,
+                        version=version,
+                        section=section_name,
+                        breadcrumb=[section_name],
+                        client=client,
+                        collection_id=collection_id,
+                        manifest=manifest,
+                        base_dir_for_manifest=base_dir,
+                    )
         # Create subdirectory for sub-pages
         section_dir = base_dir / clean_section_name
         section_dir.mkdir(exist_ok=True)
@@ -533,7 +898,7 @@ def crawl_section(section_url, base_dir, section_name, base_path, visited_urls, 
         # Extract TOC from sidebar using version base URL
         # If not provided, use section URL
         toc_base_url = version_base_url if version_base_url else section_url
-        toc_items = extract_toc_sidebar(soup, toc_base_url)
+        toc_items = extract_toc_sidebar(soup, toc_base_url, base_dir=base_dir)
         print(f"{indent}  ✓ Found {len(toc_items)} pages in TOC")
 
         # Filter TOC to include only pages from this section
@@ -574,39 +939,86 @@ def crawl_section(section_url, base_dir, section_name, base_path, visited_urls, 
 
             visited_urls.add(item['url'])
 
-            try:
-                page_response = requests.get(item['url'])
-                page_soup = BeautifulSoup(page_response.content, 'html.parser')
+            filename = sanitize_filename(item['title'])
+            filepath = section_dir / filename
 
-                page_content = extract_main_content(page_soup)
+            # Check if already downloaded (manifest + file exists)
+            skip_download = False
+            if manifest is not None:
+                entry = manifest.get('items', {}).get(item['url'])
+                if entry and entry.get('is_downloaded') is True and filepath.exists():
+                    skip_download = True
+                    print(f"{indent}    ⊘ Already downloaded (manifest), skipping download")
+                    # Check if upload is needed
+                    if entry.get('is_uploaded') is not True and client is not None and collection_id is not None:
+                        # Re-read file and try to upload
+                        try:
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                file_content = f.read()
+                            # Extract content without front matter for upload
+                            if file_content.startswith('---'):
+                                parts = file_content.split('\n---\n', 1)
+                                if len(parts) == 2:
+                                    file_content = parts[1].lstrip('\n')
+                            # Build breadcrumb: Section > Page Title
+                            page_breadcrumb = [section_name, item['title']]
+                            save_page(
+                                file_content,
+                                filepath,
+                                item['url'],
+                                product=product,
+                                version=version,
+                                section=section_name,
+                                breadcrumb=page_breadcrumb,
+                                client=client,
+                                collection_id=collection_id,
+                                manifest=manifest,
+                                base_dir_for_manifest=base_dir,
+                            )
+                        except Exception as e:
+                            print(f"{indent}    ⚠️ Error re-uploading existing file: {e}")
+                    else:
+                        print(f"{indent}    ⊘ Already uploaded, skipping")
+                elif entry and entry.get('is_uploaded') is True:
+                    print(f"{indent}    ⊘ Already uploaded (manifest): {item['title']}")
+                    continue
 
-                if page_content:
-                    filename = sanitize_filename(item['title'])
-
-                    # Save directly in section directory (flat)
-                    filepath = section_dir / filename
-
-                    # Build breadcrumb: Section > Page Title
-                    page_breadcrumb = [section_name, item['title']]
-
-                    save_page(
-                        page_content,
-                        filepath,
+            if not skip_download:
+                try:
+                    page_response = retry_request_with_backoff(
                         item['url'],
-                        product=product,
-                        version=version,
-                        section=section_name,
-                        breadcrumb=page_breadcrumb,
-                        client=client,
-                        collection_id=collection_id,
+                        base_dir=base_dir,
+                        context=f"Downloading page: {item['title']} (section: {section_name})"
                     )
+                    page_soup = BeautifulSoup(page_response.content, 'html.parser')
 
-                time.sleep(0.5)
+                    page_content = extract_main_content(page_soup)
 
-            except Exception as e:
-                print(f"{indent}    ✗ Error: {e}")
-                # Stop on any failure to avoid partial ingestion
-                raise
+                    if page_content:
+                        # Save directly in section directory (flat)
+                        # Build breadcrumb: Section > Page Title
+                        page_breadcrumb = [section_name, item['title']]
+
+                        save_page(
+                            page_content,
+                            filepath,
+                            item['url'],
+                            product=product,
+                            version=version,
+                            section=section_name,
+                            breadcrumb=page_breadcrumb,
+                            client=client,
+                            collection_id=collection_id,
+                            manifest=manifest,
+                            base_dir_for_manifest=base_dir,
+                        )
+
+                    time.sleep(0.5)
+
+                except Exception as e:
+                    print(f"{indent}    ✗ Error: {e}")
+                    # Stop on any failure to avoid partial ingestion
+                    raise
 
     except Exception as e:
         print(f"{indent}✗ Error processing section {section_url}: {e}")
@@ -621,7 +1033,11 @@ def print_toc_preview(start_url):
 
     try:
         # Download main page
-        response = requests.get(start_url)
+        response = retry_request_with_backoff(
+            start_url,
+            base_dir=None,  # No base_dir in preview mode
+            context="Preview: Downloading main page"
+        )
         soup = BeautifulSoup(response.content, 'html.parser')
 
         # Extract metadata
@@ -639,7 +1055,7 @@ def print_toc_preview(start_url):
             print("⚠️  This is a content page, not a landing page.")
             print("   Will extract TOC from sidebar...\n")
 
-            toc_items = extract_toc_sidebar(soup, start_url)
+            toc_items = extract_toc_sidebar(soup, start_url, base_dir=None)
 
             print(f"📄 Found {len(toc_items)} pages in TOC:\n")
             for i, item in enumerate(toc_items[:20], 1):  # Show first 20
@@ -664,7 +1080,7 @@ def print_toc_preview(start_url):
         total_pages = 0
 
         # Get TOC for the whole documentation
-        toc_items = extract_toc_from_json(start_url)
+        toc_items = extract_toc_from_json(start_url, base_dir=None)
 
         for idx, section in enumerate(landing_links, 1):
             print(f"\n{'─'*70}")
@@ -732,13 +1148,24 @@ def crawl_documentation(start_url, output_dir='docs', preview_only=False):
 
     visited_urls = set()
 
-    # Download main page
-    response = requests.get(start_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    # Extract metadata
+    # Create base directory first (needed for error logging)
+    # We'll extract metadata after, but need base_dir for retry logging
+    # So we'll do a preliminary download to get product/version
     print("📊 Extracting metadata...")
-    product, version = extract_metadata(soup, start_url)
+    try:
+        response = retry_request_with_backoff(
+            start_url,
+            base_dir=None,  # Will be created after we know product/version
+            context="Initial metadata extraction"
+        )
+        soup = BeautifulSoup(response.content, 'html.parser')
+        product, version = extract_metadata(soup, start_url)
+    except Exception as e:
+        # If we can't even get metadata, create a temp directory for error logging
+        temp_base_dir = Path(output_dir) / "unknown" / "unknown"
+        temp_base_dir.mkdir(parents=True, exist_ok=True)
+        log_error(temp_base_dir, start_url, e, "Failed to extract metadata")
+        raise
 
     base_path = get_base_path(start_url)
 
@@ -752,13 +1179,32 @@ def crawl_documentation(start_url, output_dir='docs', preview_only=False):
     base_dir = Path(output_dir) / product / version
     base_dir.mkdir(parents=True, exist_ok=True)
 
+    # Re-download main page with proper base_dir for error logging
+    response = retry_request_with_backoff(
+        start_url,
+        base_dir=base_dir,
+        context="Downloading main page for crawling"
+    )
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # Load or initialize manifest for this product/version
+    manifest = load_manifest(base_dir, product, version)
+
     # Initialize RAG client and target collection
     api_key = os.environ.get('RAG_API_KEY', 'dev-secret-token')
-    client = RAGApiClient(base_url='https://aiworkspace-lucrecia.rpcai.rackspace-cloud.com', api_key=api_key)
+    client = RAGApiClient(base_url='http://127.0.0.1:9000', api_key=api_key)
     collection_name = f"{product}-{version}"
     print(f"🔐 Using collection: {collection_name}")
     collection_id = get_or_create_collection(client, collection_name)
     print(f"✓ Collection id: {collection_id}")
+
+    # Rebuild manifest from existing files (sync with what's already downloaded)
+    print("📋 Scanning existing files to rebuild manifest...")
+    added = rebuild_manifest_from_existing_files(base_dir, manifest, client=client, collection_id=collection_id)
+    if added > 0:
+        print(f"✓ Added {added} existing files to manifest")
+    else:
+        print("✓ Manifest is up to date")
 
     # Determine page type
     if is_landing_page(soup):
@@ -791,12 +1237,13 @@ def crawl_documentation(start_url, output_dir='docs', preview_only=False):
                 depth=1,
                 client=client,
                 collection_id=collection_id,
+                manifest=manifest,
             )
 
             time.sleep(1)
     else:
         print("✓ Page type: CONTENT PAGE\n")
-        crawl_section(start_url, base_dir, "main", base_path, visited_urls, version_base_url=start_url, product=product, version=version, client=client, collection_id=collection_id)
+        crawl_section(start_url, base_dir, "main", base_path, visited_urls, version_base_url=start_url, product=product, version=version, client=client, collection_id=collection_id, manifest=manifest)
 
     print(f"\n{'='*70}")
     print(f"✅ CRAWLING COMPLETED")

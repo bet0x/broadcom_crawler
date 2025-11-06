@@ -1,14 +1,14 @@
 ---
-source_url: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/blueprint-5/design-elements-for-vcf-fleet-with-multiple-sites-in-a-single-region-plus-additional-regions/security-governance-and-compliance-design-elements-for-vcf-fleet-with-multiple-sites-in-a-single-region-plus-additional-regions.html
+source_url: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/vsphere-only-to-vcf-fleet-upgrade-blueprint/design-elements-for-vcf-fleet-with-multiple-sites-in-a-single-region/security-governance-and-compliance-design-elements-for-vcf-fleet-with-multiple-sites-in-a-single-region.html
 product: vmware-cloud-foundation
 version: 9.0
 section: Design
-breadcrumb: Design > Security Governance and Compliance Design Elements for VCF Fleet with Multiple Sites in a Single Region plus Additional Region(s)
+breadcrumb: Design > Security Governance and Compliance Design Elements for VCF Fleet with Multiple Sites in a Single Region
 ---
 
-# Security Governance and Compliance Design Elements for VCF Fleet with Multiple Sites in a Single Region plus Additional Region(s)
+# Security Governance and Compliance Design Elements for VCF Fleet with Multiple Sites in a Single Region
 
-This section provides the security governance and compliance requirements and recommendations for the VVCF Fleet with Multiple Sites in a Single Region plus Additional Region(s) blueprint
+This section provides the security governance and compliance requirements and recommendations for the VCF Fleet with Multiple Sites in a Single Region blueprint
 
 Appliance VCF Identity Broker Model Design Requirements
 

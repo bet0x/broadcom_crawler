@@ -16,6 +16,8 @@ Use the VMware Cloud Foundation Operations fleet management appliance to manage,
 - VCF Automation
 - VCF Identity Broker
 
+When you update your VCF environment to a maintenance release version (x.y.z), you first update your management components that operate on the fleet level before you update the core components in your instances. For the management components, start with the VCF Operations fleet management appliance, followed by the VCF Operations instance and then proceed with the remaining components in your preferred order. For the core components, start with SDDC Manager, followed by NSX, vCenter, ESX hosts, and vSAN. See [Lifecycle Management of VCF Core Components](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/lifecycle-management/lifecycle-management-of-vcf-core-components.html).
+
 Before you can upgrade, patch, or deploy the VCF management components, you must download the binaries to the VCF Operations fleet management appliance. The method that you use to download the binaries depends on how you access the internet in your environment.
 
 - Online depot: The VCF Operations fleet management appliance connects directly to the online depot and requires a download token.

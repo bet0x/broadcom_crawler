@@ -41,6 +41,6 @@ Use the VCF Download Tool UMDS commands to install UMDS and list, download and m
 | ``` ./vcf-download-tool umds run --list-host-platforms ``` | Lists all supported platforms for downloading ESX host updates. |
 | ``` ./vcf-download-tool umds run -S --enable-host ``` | Enables downloading of ESX host updates. |
 | ``` ./vcf-download-tool umds run -S -e embeddedEsx-8.0.0 ``` | Enables downloading of only ESXi 8.0.0 host updates. |
-| ``` ./vcf-download-tool umds run -S -d embeddedEsx-8.0.0 ``` | Deactivates downloading of only ESXi 8.0.0 host updates.. |
+| ``` ./vcf-download-tool umds run -S -d embeddedEsx-8.0.0 ``` | Deactivates downloading of only ESXi 8.0.0 host updates. |
 | ``` ./vcf-download-tool umds run vmware-umds -D ``` | Downloads updates based on the current configuration. |
 | ``` ./vcf-download-tool umds run -S --default-export-store F:\UMDS-store ```  ``` ./vcf-download-tool umds run -E ``` | Specifies and new export location and exports all updates that have been downloaded to that location. |

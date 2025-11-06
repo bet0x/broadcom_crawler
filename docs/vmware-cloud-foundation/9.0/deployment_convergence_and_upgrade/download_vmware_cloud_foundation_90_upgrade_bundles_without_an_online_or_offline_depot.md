@@ -134,8 +134,6 @@ Example that combines the options:
       ```
       ./vcf-download-tool umds run -S --add-url https://host_url/index.xml --url-type HOST
       ```
-
-      Replace host\_url with the URL address of the ESX host.
    4. Download updates based on the current configuration.
 
       ```

@@ -24,34 +24,18 @@ More than one active health monitor can be configured per server pool.
 3. Select a protocol for the server from the drop-down menu. 
 
    You can also use predefined protocols: ICMP, TCP, and UDP for NSX Manager.
-4. Select the HTTP protocol.
-5. Configure the values to monitor a service pool. 
+4. Select the ICMP protocol.
+5. Complete step 5 and assign the data size in byte of the ICMP health check packet.
+6. Select the TCP protocol.
+7. Complete step 5 and you can leave the TCP data parameters empty. 
 
-   You can also accept the default active health monitor values.
+   If both the data sent and expected are not listed, then a three-way handshake TCP connection is established to validate the server health. No data is sent.
 
-   Option | Description || Name and Description | Enter a name and description for the active health monitor. |
-   | Monitoring Port | Set the value of the monitoring port. There must be a port in either the pool member or the monitor. Otherwise,the monitor will not work. |
-   | Monitoring Interval | Set the time in seconds that the monitor sends another connection request to the server. |
-   | Timeout Period | Set the time the load balancer will wait for the Pool Member monitor response before considering failed. |
-   | Fail Count | Set a value when the consecutive failures reach this value, the server is considered temporarily unavailable. |
-   | Rise Count | Set the value of consecutive successful monitors to reach before changing the Pool Member Status from Down to Up. |
-   | Tags | Enter tags to make searching easier. You can specify a tag to set a scope of the tag. |
+   Expected data if listed has to be a string. Regular expressions are not supported.
+8. Select the UDP protocol.
+9. Complete step 5 and configure the UDP data. 
 
-   For example, if the monitoring interval is set as 5 seconds and the timeout as 15 seconds, the load balancer send requests to the server every 5 seconds. In each probe if the expected response is received from the server within 15 seconds, the health check result is OK. If not, then the result is CRITICAL. If the recent three health check results are all UP, the server is considered as UP.
-6. To configure the HTTP Request, click Configure.
-7. Click Save.
-8. Select the ICMP protocol.
-9. Complete step 5 and assign the data size in byte of the ICMP health check packet.
-10. Select the TCP protocol.
-11. Complete step 5 and you can leave the TCP data parameters empty. 
-
-    If both the data sent and expected are not listed, then a three-way handshake TCP connection is established to validate the server health. No data is sent.
-
-    Expected data if listed has to be a string. Regular expressions are not supported.
-12. Select the UDP protocol.
-13. Complete step 5 and configure the UDP data. 
-
-    Required Option | Description || UDP Data Sent | Enter the string to be sent to a server after a connection is established. |
-    | UDP Data Expected | Enter the string expected to receive from the server. Only when the received string matches this definition, is the server is considered as UP. |
+   Required Option | Description || UDP Data Sent | Enter the string to be sent to a server after a connection is established. |
+   | UDP Data Expected | Enter the string expected to receive from the server. Only when the received string matches this definition, is the server is considered as UP. |
 
 Associate the active health monitor with a server pool. See [Add a Server Pool](/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/load-balancer/setting-up-load-balancer-components/add-a-server-pool.html#GUID-cf0f0b05-0c6a-4f8a-b5f0-9bae38680b17-en).
